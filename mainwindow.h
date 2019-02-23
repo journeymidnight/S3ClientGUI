@@ -2,7 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "../S3Client/qs3client.h"
+#include "../s3util/qs3client.h"
 #include "s3treemodel.h"
 #include "qfilesystemview.h"
 #include <QAction>

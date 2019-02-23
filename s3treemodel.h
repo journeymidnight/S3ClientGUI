@@ -2,7 +2,7 @@
 #define S3TREEMODEL_H
 #include <QFileIconProvider>
 #include <QAbstractItemModel>
-#include "../S3Client/qs3client.h"
+#include "../s3util/qs3client.h"
 #include "s3item.h"
 
 using namespace qlibs3;
@@ -69,9 +69,12 @@ private slots://could use lamda function to replace
     void listPrefixInfo(s3prefix prefix, QString bucketName);
 
     void listBucketFinishd(bool success, s3error error);
-    void listObjectFinished(bool,s3error,bool);
+    void listObjectFinished(bool,s3error,bool,QString);
 
     //void DeleteObjectFinished(bool success, s3error error); using lamda function
+
+private:
+	QString toValidPath(QString path);
 
 private:
     QS3Client *m_s3client;
@@ -82,6 +85,7 @@ private:
     QFileIconProvider iconProvider;
     QString m_currentPath;
     CommandAction *m_currentCommand;
+	const QString dotdot = QString("..");
 };
 
 #endif // S3TREEMODEL_H

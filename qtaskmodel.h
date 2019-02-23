@@ -2,7 +2,7 @@
 #define QTASKMODEL_H
 #include <QAbstractItemModel>
 #include <QSharedPointer>
-#include "../S3Client/qs3client.h"
+#include "../s3util/qs3client.h"
 #include <QWeakPointer>
 #include <QQueue>
 #include <QWaitCondition>
