@@ -1,10 +1,13 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "qfilesystemview.h"
-#include <QDir>
 #include "qtaskmodel.h"
+#include "driveselectwidget.h"
+
+#include <QDir>
 #include <QSharedPointer>
 #include <QMessageBox>
+#include <QSortFilterProxyModel>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -34,37 +37,49 @@ void MainWindow::init() {
 
     m_s3model->setRootPath("/");
 
-    ui->treeViewS3->setModel(m_s3model);
+	QSortFilterProxyModel *proxyModel = new QSortFilterProxyModel(this);
+	proxyModel->setSourceModel(m_s3model);
+
+    ui->treeViewS3->setModel(proxyModel);
     ui->treeViewS3->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->treeViewS3->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->treeViewS3->setItemsExpandable(false);
     ui->treeViewS3->setRootIsDecorated(false);
     ui->treeViewS3->setExpandsOnDoubleClick(false);
     ui->treeViewS3->setSortingEnabled(true);
+	ui->treeViewS3->header()->setSectionsMovable(false);
+	ui->treeViewS3->sortByColumn(1);
 
 
     m_fsview = new QFilesystemView(this);
     //Add a new View to layout
     ui->verticalLayout->insertWidget(1, m_fsview);
 
+	DriveSelectWidget *driveSelect = new DriveSelectWidget(this);
+	driveSelect->setReadOnly(true);
+	connect(driveSelect, &DriveSelectWidget::driveChanged, m_fsview, &QFilesystemView::changeToDrive);
+	ui->horizontalLayout->insertWidget(1, driveSelect);
 
-
-    ui->LocalPathEdit->setEnabled(false);
-    ui->S3PathEdit->setEnabled(false);
+	ui->S3PathEdit->setReadOnly(true);
 
 
     //s3 view
     connect(m_s3model, SIGNAL(rootPathChanged(QString)),  ui->S3PathEdit, SLOT(setText(const QString &)));
-    connect(ui->treeViewS3, SIGNAL(doubleClicked(QModelIndex)), m_s3model, SLOT(setRootIndex(QModelIndex)));
-    connect(m_s3model, SIGNAL(updateInfo(QString)), ui->S3Info, SLOT(setText(QString)));
+//    connect(ui->treeViewS3, SIGNAL(doubleClicked(QModelIndex)), m_s3model, SLOT(setRootIndex(QModelIndex))); 
+	//model of ui->treeViewS3 is proxyModel, must use mapToSource() to convert to m_s3model
+	connect(ui->treeViewS3, &QTreeView::doubleClicked, this, [=](QModelIndex proxyIndex) {
+		QModelIndex index = static_cast<const QSortFilterProxyModel *>(proxyIndex.model())->mapToSource(proxyIndex);
+		m_s3model->setRootIndex(index);
+	});
+    //connect(m_s3model, SIGNAL(updateInfo(QString)), ui->S3Info, SLOT(setText(QString)));
 
 
 
 
     //fs view
-    connect(m_fsview, SIGNAL(updateInfo(QString)), ui->localInfo, SLOT(setText(QString)));
-    connect(m_fsview, SIGNAL(rootPathChanged(QString)), ui->LocalPathEdit, SLOT(setText(QString)));
-    connect(ui->localUpButton, SIGNAL(clicked()), m_fsview, SLOT(upToParent()));
+    //connect(m_fsview, SIGNAL(updateInfo(QString)), ui->localInfo, SLOT(setText(QString)));
+    connect(m_fsview, SIGNAL(rootPathChanged(QString)), driveSelect, SLOT(setText(QString)));
+    //connect(ui->localUpButton, SIGNAL(clicked()), m_fsview, SLOT(upToParent()));
     m_fsview->refreshSignals();
 
     //to receive log

@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>815</width>
+    <width>865</width>
     <height>745</height>
    </rect>
   </property>
@@ -40,22 +40,12 @@
              </property>
             </widget>
            </item>
-           <item>
-            <widget class="QLineEdit" name="LocalPathEdit"/>
-           </item>
-           <item>
-            <widget class="QToolButton" name="localUpButton">
-             <property name="text">
-              <string>up</string>
-             </property>
-            </widget>
-           </item>
           </layout>
          </item>
          <item>
           <widget class="QLabel" name="localInfo">
            <property name="text">
-            <string>TextLabel</string>
+            <string/>
            </property>
           </widget>
          </item>
@@ -75,13 +65,6 @@
            <item>
             <widget class="QLineEdit" name="S3PathEdit"/>
            </item>
-           <item>
-            <widget class="QToolButton" name="S3UpButton">
-             <property name="text">
-              <string>up</string>
-             </property>
-            </widget>
-           </item>
           </layout>
          </item>
          <item>
@@ -94,7 +77,7 @@
          <item>
           <widget class="QLabel" name="S3Info">
            <property name="text">
-            <string>TextLabel</string>
+            <string/>
            </property>
           </widget>
          </item>
@@ -110,8 +93,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>815</width>
-     <height>22</height>
+     <width>865</width>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

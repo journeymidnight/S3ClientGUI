@@ -1,8 +1,9 @@
 #ifndef QFILESYSTEMVIEW_H
 #define QFILESYSTEMVIEW_H
-#include <QFileSystemModel>
-#include <QTreeView>
 
+#include <QTreeView>
+#include <QDir>
+#include "filesystemmodel.h"
 
 class QFilesystemView : public QTreeView
 {
@@ -14,14 +15,16 @@ public:
     void refreshSignals();
     QFileInfo currentFileInfo() const;
 private slots:
-    void changeToDir(const QModelIndex & index);
+    void changeToDir(const QModelIndex &index);
 public slots:
+	void changeToDrive(const QString &drive);
     void upToParent();
 signals:
     void rootPathChanged(const QString&);
     void updateInfo(const QString&);
 private:
-    QFileSystemModel *m_fsmodel;
+    FileSystemModel *m_fsmodel;
+	QDir dir;
 };
 
 #endif // QFILESYSTEMVIEW_H

@@ -1,7 +1,24 @@
+#include <QMimeDatabase>
+#include <QSize>
+#include <QIcon>
+
+#ifdef Q_OS_WIN
+#include <Windows.h>
+#include <shellapi.h>
+#include <QtWin>
+
+#ifdef GetMessage
+//Aws::Client::AWSError::GetMessage() conflict with win32 lib
+#undef GetMessage
+#endif // GetMessage
+
+//Aws::S3::S3Client::GetObject() conflict with win32 lib
+#ifdef GetObject
+#undef GetObject
+#endif // GetObject
+#endif // Q_OS_WIN
+
 #include "s3treemodel.h"
-#include "QMimeDatabase"
-#include "QSize"
-#include "QIcon"
 
 S3TreeModel::S3TreeModel(QS3Client * s3client, QObject * parent):QAbstractItemModel(parent), m_s3client(s3client)
   ,m_truncated(false)
@@ -48,23 +65,50 @@ void S3TreeModel::setRootIndex(const QModelIndex &index) {
  *  Path Example = /bucketName/dirName/
  *  Path Example = /
  *  Path Example = /bucketName/
+ *  Path Example = /bucketName/../
+ *  Path Example = /bucketName/dirName/../
  */
+
+// parse ".." of path
+QString S3TreeModel::toValidPath(QString path)
+{
+	QString validPath = path;
+	QStringList parts = path.split('/');
+
+	//path start with a '/' and end with '/'
+	if (parts.count() >= 2 && parts.last() == "") {
+
+	}
+	else {
+		qDebug() << "bad path name:" << path;
+		return validPath;
+	}
+
+	if (!parts.contains(dotdot))
+		return validPath;
+
+	if (!parts.isEmpty())
+		parts.removeLast();
+	if (!parts.isEmpty())
+		parts.removeLast();
+	if (!parts.isEmpty())
+		parts.removeLast();
+
+	validPath = parts.join(QChar('/'));
+	validPath.append(QChar('/'));
+	return validPath;
+}
+
 void S3TreeModel::setRootPath(const QString &path) {
     //In commandFinished slot, I will call endResetModel;
     beginResetModel();
     qDeleteAll(m_currentData);
     m_currentData.clear();
 
-    QStringList parts = path.split("/");
-    //path start with a '/' and end with '/'
-    if (parts.count() >= 2 && parts.last() == "") {
-    } else {
-        qDebug() << "bad path name:" << path;
-        endResetModel();
-        return;
-    }
+	QString validPath = toValidPath(path);
+    QStringList parts = validPath.split("/");
 
-    m_currentPath = path;
+    m_currentPath = validPath;
     QString bucketName = parts[1];
     qDebug() << "bucket name:" << bucketName;
     if (bucketName == "") {
@@ -94,13 +138,17 @@ void S3TreeModel::setRootPath(const QString &path) {
 
     qDebug() << "prefix name" << prefix;
 
-    //listObjectInfo will fill the m_currentData;
+	//in begining, insert ".." Folder
+	QVariantList data;
+	data << dotdot << QVariant() << QVariant() << QVariant();
+	m_currentData.append(new SimpleItem(data, S3DirectoryType, bucketName, prefix + dotdot + QChar('/')));
 
-    ListObjectAction *loAction  = m_s3client->ListObjects(bucketName, "", prefix);
+    //listObjectInfo will fill the m_currentData;
+    ListObjectAction *loAction  = m_s3client->ListObjects(bucketName, "", prefix, QString('/'));
 
     connect(loAction, SIGNAL(ListObjectInfo(s3object, QString)), this, SLOT(listObjectInfo(s3object, QString)));
     connect(loAction, SIGNAL(ListPrefixInfo(s3prefix, QString)), this, SLOT(listPrefixInfo(s3prefix, QString)));
-    connect(loAction, SIGNAL(ListObjectFinished(bool, s3error, bool)), this, SLOT(listObjectFinished(bool,s3error,bool)));
+    connect(loAction, SIGNAL(ListObjectFinished(bool, s3error, bool, QString)), this, SLOT(listObjectFinished(bool,s3error,bool, QString)));
 
 
 
@@ -114,7 +162,7 @@ void S3TreeModel::refresh() {
 void S3TreeModel::listBucketInfo(s3bucket bucket) {
     QList<QVariant> data;
     QString bucketName = AwsString2QString(bucket.GetName());
-    data << bucketName << AwsString2QString(bucket.GetCreationDate().ToGmtString(Aws::Utils::DateFormat::ISO_8601)) << "" << "";
+    data << bucketName << AwsString2QString(bucket.GetCreationDate().ToLocalTimeString("%Y/%m/%d %R")) << "" << "";
     m_currentData.append(new SimpleItem(data, S3BucketType, QString(), bucketName));
 }
 
@@ -138,8 +186,8 @@ void S3TreeModel::listObjectInfo(s3object object, QString bucketName) {
         name = key;
     }
 
-    data << name << AwsString2QString(object.GetLastModified().ToGmtString(Aws::Utils::DateFormat::ISO_8601))
-         << AwsString2QString(object.GetOwner().GetDisplayName()) << object.GetSize();
+    data << name << AwsString2QString(object.GetLastModified().ToLocalTimeString("%Y/%m/%d %R"))
+         << AwsString2QString(object.GetOwner().GetDisplayName()) << QLocale::system().formattedDataSize(object.GetSize());
 
     //
     data << AwsString2QString(object.GetETag()) << AwsString2QString(
@@ -182,7 +230,9 @@ void S3TreeModel::listBucketFinishd(bool success, s3error error) {
     emit this->cmdFinished();
 }
 
-void S3TreeModel::listObjectFinished(bool success, s3error error, bool truncated) {
+void S3TreeModel::listObjectFinished(bool success, s3error error, bool truncated, QString nextMarker) {
+	Q_UNUSED(nextMarker);
+
     if (!success) {
         qDebug() << "list object error!" << AwsString2QString(error.GetMessage());
     }
@@ -221,16 +271,35 @@ QVariant S3TreeModel::data(const QModelIndex &index, int role) const {
             switch (item->type) {
                 case S3FileType:
 		    {
-	            // from doc, said this is OK to parse every time;
-	            QMimeDatabase mime_database;
-		    QIcon icon;
-                    QList<QMimeType> mime_types = mime_database.mimeTypesForFileName(item->objectPath);
-                    for (int i=0; i < mime_types.count() && icon.isNull(); i++)
-                        icon = QIcon::fromTheme(mime_types[i].iconName());
-                    if (icon.isNull())
-                       return iconProvider.icon(QFileIconProvider::File);
-                    else
-                       return icon;
+#ifdef Q_OS_WIN
+					SHFILEINFOA info;
+					QString fileExtension = item->data.value(index.column()).toString();
+					fileExtension = fileExtension.mid(fileExtension.lastIndexOf('.'));
+					if (SHGetFileInfoA(fileExtension.toStdString().c_str(),
+						FILE_ATTRIBUTE_NORMAL,
+						&info,
+						sizeof(info),
+						SHGFI_SYSICONINDEX | SHGFI_ICON | SHGFI_USEFILEATTRIBUTES)) {
+						HICON h_icon = info.hIcon;
+						return QIcon(QtWin::fromHICON(h_icon));
+					}
+					else
+						return QIcon();
+#else
+					//from doc, said this is OK to parse every time;
+					QMimeDatabase mime_database;
+					QIcon icon;
+					QList<QMimeType> mime_types = mime_database.mimeTypesForFileName(item->objectPath);
+					for (int i = 0; i < mime_types.count() && icon.isNull(); i++)
+						icon = QIcon::fromTheme(mime_types[i].iconName());
+					if (icon.isNull())
+						return iconProvider.icon(QFileIconProvider::File);
+					else
+					return icon;
+#endif // !Q_OS_WIN
+
+	            
+				
 		    }
                 case S3DirectoryType:
                     return iconProvider.icon(QFileIconProvider::Folder);
