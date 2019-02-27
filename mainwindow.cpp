@@ -8,6 +8,8 @@
 #include <QSharedPointer>
 #include <QMessageBox>
 #include <QSortFilterProxyModel>
+#include <QEvent>
+#include <QInputDialog>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -40,6 +42,9 @@ void MainWindow::init() {
 	QSortFilterProxyModel *proxyModel = new QSortFilterProxyModel(this);
 	proxyModel->setSourceModel(m_s3model);
 
+	ui->splitter->setStretchFactor(0, 4);
+	ui->splitter->setStretchFactor(1, 3);
+
     ui->treeViewS3->setModel(proxyModel);
     ui->treeViewS3->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->treeViewS3->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -48,12 +53,15 @@ void MainWindow::init() {
     ui->treeViewS3->setExpandsOnDoubleClick(false);
     ui->treeViewS3->setSortingEnabled(true);
 	ui->treeViewS3->header()->setSectionsMovable(false);
+	ui->treeViewS3->header()->setStretchLastSection(true);
+	ui->treeViewS3->setColumnWidth(1, 107);
 	ui->treeViewS3->sortByColumn(1);
 
+	ui->treeViewS3->installEventFilter(this);
 
     m_fsview = new QFilesystemView(this);
     //Add a new View to layout
-    ui->verticalLayout->insertWidget(1, m_fsview);
+    ui->verticalLayout_localFSView->insertWidget(1, m_fsview);
 
 	DriveSelectWidget *driveSelect = new DriveSelectWidget(this);
 	driveSelect->setReadOnly(true);
@@ -65,15 +73,41 @@ void MainWindow::init() {
 
     //s3 view
     connect(m_s3model, SIGNAL(rootPathChanged(QString)),  ui->S3PathEdit, SLOT(setText(const QString &)));
-//    connect(ui->treeViewS3, SIGNAL(doubleClicked(QModelIndex)), m_s3model, SLOT(setRootIndex(QModelIndex))); 
+//    connect(ui->treeViewS3, SIGNAL(doubleClicked(QModelIndex)), m_s3model, SLOT(setRootIndex(QModelIndex)));
+	connect(m_s3model, SIGNAL(currentViewIsBucket(bool)), this, SLOT(on_enableBucketActions(bool)));
 	//model of ui->treeViewS3 is proxyModel, must use mapToSource() to convert to m_s3model
 	connect(ui->treeViewS3, &QTreeView::doubleClicked, this, [=](QModelIndex proxyIndex) {
+		if (!proxyIndex.isValid())
+			return;
 		QModelIndex index = static_cast<const QSortFilterProxyModel *>(proxyIndex.model())->mapToSource(proxyIndex);
 		m_s3model->setRootIndex(index);
 	});
     //connect(m_s3model, SIGNAL(updateInfo(QString)), ui->S3Info, SLOT(setText(QString)));
 
 
+	//init BucketAction Area
+	ui->horizontalLayout_BucketAction->addStretch();
+
+	ui->toolButton_bucketCreate->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+	ui->toolButton_bucketCreate->setFocusPolicy(Qt::NoFocus);
+	ui->toolButton_bucketCreate->setIcon(QIcon(":/images/bucket_Create.png"));
+	ui->toolButton_bucketCreate->setIconSize(QSize(24, 24));
+	ui->toolButton_bucketCreate->setText(tr("New bucket"));
+	connect(ui->toolButton_bucketCreate, SIGNAL(clicked()), this, SLOT(on_bucketCreate()));
+
+	ui->toolButton_bucketDelete->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+	ui->toolButton_bucketDelete->setFocusPolicy(Qt::NoFocus);
+	ui->toolButton_bucketDelete->setIcon(QIcon(":/images/bucket_Delete.png"));
+	ui->toolButton_bucketDelete->setIconSize(QSize(24, 24));
+	ui->toolButton_bucketDelete->setText(tr("Delete bucket"));
+	connect(ui->toolButton_bucketDelete, SIGNAL(clicked()), this, SLOT(on_bucketDelete()));
+
+	ui->toolButton_bucketRefresh->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+	ui->toolButton_bucketRefresh->setFocusPolicy(Qt::NoFocus);
+	ui->toolButton_bucketRefresh->setIcon(QIcon(":/images/bucket_Refresh.png"));
+	ui->toolButton_bucketRefresh->setIconSize(QSize(24, 24));
+	ui->toolButton_bucketRefresh->setText(tr("Refresh"));
+	connect(ui->toolButton_bucketRefresh, SIGNAL(clicked()), this, SLOT(on_bucketRefresh()));	
 
 
     //fs view
@@ -106,7 +140,68 @@ void MainWindow::init() {
     ui->logEdit->hide();
 
     quitDialog = 0;
-    connect(m_s3model, SIGNAL(cmdFinished()), this, SLOT(on_cmdFinished()));
+    connect(m_s3model, SIGNAL(cmdFinished(bool, s3error)), this, SLOT(on_cmdFinished(bool, s3error)));
+}
+
+void MainWindow::on_bucketCreate()
+{
+	bool ok;
+	QString bucketName = QInputDialog::getText(this,
+		tr("Create New Bucket"),
+		tr("Bucket name:"),
+		QLineEdit::Normal,
+		QString(),
+		&ok);
+
+	if (ok && !bucketName.isEmpty()) {
+		CreateBucketAction *action = m_s3client->CreateBucket(bucketName);
+		connect(action, &CreateBucketAction::CreateBucketFinished, this, [=](bool success, s3error err) {
+			if (success)
+				m_s3model->setRootPath(QString('/'));
+			else
+				QMessageBox::critical(this,
+					AwsString2QString(err.GetExceptionName()),
+					AwsString2QString(err.GetMessage()),
+					QMessageBox::Yes);
+		});
+	}
+}
+
+void MainWindow::on_bucketDelete()
+{
+	QModelIndex proxyIndex = ui->treeViewS3->currentIndex();
+	if (!proxyIndex.isValid())
+		return;
+	QModelIndex index = static_cast<const QSortFilterProxyModel *>(proxyIndex.model())->mapToSource(proxyIndex);
+	SimpleItem *item = static_cast<SimpleItem*>(index.internalPointer());
+	if (QMessageBox::question(this,
+		tr("Confirm Bucket Deletion"),
+		tr("<html><p>The following bucket will be permanently deleted:</p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>%1</strong></p></html>").arg(item->objectPath),
+		QMessageBox::Yes | QMessageBox::Cancel,
+		QMessageBox::Cancel) == QMessageBox::Yes) {
+		DeleteBucketAction *action = m_s3client->DeleteBucket(item->objectPath);
+		connect(action, &DeleteBucketAction::DeleteBucketFinished, this, [=](bool success, s3error err) {
+			if (success)
+				m_s3model->setRootPath(QString('/'));
+			else
+				QMessageBox::critical(this,
+					AwsString2QString(err.GetExceptionName()),
+					AwsString2QString(err.GetMessage()),
+					QMessageBox::Yes);
+		});
+	}
+}
+
+void MainWindow::on_bucketRefresh()
+{
+	m_s3model->setRootPath(QString('/'));
+}
+
+void MainWindow::on_enableBucketActions(bool enabled)
+{
+	ui->toolButton_bucketCreate->setEnabled(enabled);
+	ui->toolButton_bucketDelete->setEnabled(enabled);
+	ui->toolButton_bucketRefresh->setEnabled(enabled);
 }
 
 /* could be put to S3model */
@@ -136,10 +231,11 @@ void MainWindow::on_S3UpButton_clicked()
 
 
 void MainWindow::on_S3ContextMenuRequest(const QPoint & point) {
-    QModelIndex index = ui->treeViewS3->indexAt(point);
-    if (index.isValid() == false) {
+    QModelIndex proxyIndex = ui->treeViewS3->indexAt(point);
+    if (proxyIndex.isValid() == false) {
         return;
     }
+	QModelIndex index = static_cast<const QSortFilterProxyModel *>(proxyIndex.model())->mapToSource(proxyIndex);
     //temperate menu;
     QMenu menu;
 
@@ -153,7 +249,6 @@ void MainWindow::on_S3ContextMenuRequest(const QPoint & point) {
     }
 
     menu.exec(ui->treeViewS3->mapToGlobal(point));
-
 }
 
 
@@ -214,17 +309,34 @@ void MainWindow::on_upload() {
 }
 
 void MainWindow::on_open() {
-    QModelIndex index = ui->treeViewS3->currentIndex();
-    m_s3model->setRootIndex(index);
+    QModelIndex proxyIndex = ui->treeViewS3->currentIndex();
+	if (!proxyIndex.isValid())
+		return;
+	QModelIndex index = static_cast<const QSortFilterProxyModel *>(proxyIndex.model())->mapToSource(proxyIndex);
+	m_s3model->setRootIndex(index);
 }
 
 void MainWindow::on_delete() {
-    QModelIndex index = ui->treeViewS3->currentIndex();
-    m_s3model->deleteObject(index);
+    QModelIndex proxyIndex = ui->treeViewS3->currentIndex();
+	if (!proxyIndex.isValid())
+		return;
+	QModelIndex index = static_cast<const QSortFilterProxyModel *>(proxyIndex.model())->mapToSource(proxyIndex);
+	SimpleItem *item = static_cast<SimpleItem *>(index.internalPointer());
+	if (QMessageBox::question(this,
+		tr("Confirm File Delete"),
+		tr("<html><p>Are you sure you want to delete</p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>%1</strong></p></html>").arg(item->objectPath),
+		QMessageBox::Yes | QMessageBox::Cancel,
+		QMessageBox::Cancel) == QMessageBox::Yes) {
+		m_s3model->deleteObject(index);
+	}
+    
 }
 
 void MainWindow::on_download(){
-    QModelIndex index = ui->treeViewS3->currentIndex();
+    QModelIndex proxyIndex = ui->treeViewS3->currentIndex();
+	if (!proxyIndex.isValid())
+		return;
+	QModelIndex index = static_cast<const QSortFilterProxyModel *>(proxyIndex.model())->mapToSource(proxyIndex);
     SimpleItem *item = static_cast<SimpleItem*>(index.internalPointer());
 
     //the download file name: downloadPath + S3DisplayName
@@ -240,15 +352,16 @@ void MainWindow::on_download(){
         slash = seperator;
 
     QString downloadFile = m_fsview->currentPath() + slash + item->data[0].toString();
+	downloadFile = QDir::toNativeSeparators(downloadFile);
 
     //check permission
     QFileInfo path(m_fsview->currentPath());
     //must be a dir
     if(path.isDir() && path.isWritable() == false) {
-        QMessageBox msgBox;
-        msgBox.setText(QString("%1 is not writable").arg(m_fsview->currentPath()));
-        qDebug() << m_fsview->currentPath() << "is not writable";
-        msgBox.exec();
+		QMessageBox::warning(this,
+			windowTitle(),
+			tr("\"%1\" is not writable").arg(m_fsview->currentPath()),
+			QMessageBox::Yes);
         return;
     }
 
@@ -304,7 +417,7 @@ void MainWindow::on_taskFinished(QSharedPointer<TransferTask> t) {
 
 }
 
-void MainWindow::on_cmdFinished() {
+void MainWindow::on_cmdFinished(bool success, s3error error) {
     /*
     if(quitDialog != 0) {
         if (QThreadPool::globalInstance()->activeThreadCount() == 0) {
@@ -312,6 +425,11 @@ void MainWindow::on_cmdFinished() {
         }
     }
     */
+	if (!success)
+		QMessageBox::critical(this,
+			AwsString2QString(error.GetExceptionName()),
+			AwsString2QString(error.GetMessage()),
+			QMessageBox::Yes);
 }
 
 
@@ -328,4 +446,49 @@ void MainWindow::closeEvent(QCloseEvent *event) {
     //destory API
     S3API_SHUTDOWN();
     qDebug() << "bye~";
+	event->accept();
+}
+
+bool MainWindow::eventFilter(QObject *object, QEvent *event)
+{
+	if (object == ui->treeViewS3) {
+		QModelIndex proxyIndex = ui->treeViewS3->currentIndex();
+		if (!proxyIndex.isValid())
+			return false;
+		QModelIndex index = static_cast<const QSortFilterProxyModel *>(proxyIndex.model())->mapToSource(proxyIndex);
+
+		if (event->type() == QEvent::KeyPress) {
+			// if Key_Enter, enter child object
+			if (static_cast<QKeyEvent *>(event)->key() == Qt::Key_Enter ||
+				static_cast<QKeyEvent *>(event)->key() == Qt::Key_Return) {
+				m_s3model->setRootIndex(index);
+				return true;
+			}
+			// if Key_Backspace, back to parent object or bucket
+			else if (static_cast<QKeyEvent *>(event)->key() == Qt::Key_Backspace) {
+				SimpleItem *item = static_cast<SimpleItem*>(index.internalPointer());
+				if (item->type == S3BucketType)
+					return true;
+				else {
+					QModelIndex firstIndex = m_s3model->index(0, 0, index.parent());
+					m_s3model->setRootIndex(firstIndex);
+					return true;
+				}
+			}
+			// if Key_Delete, delete object or bucket
+			else if (static_cast<QKeyEvent *>(event)->key() == Qt::Key_Delete) {
+				SimpleItem *item = static_cast<SimpleItem*>(index.internalPointer());
+				if (item->type == S3BucketType) {
+					on_bucketDelete();
+					return true;
+				}
+				else if (item->type == S3FileType) {
+					on_delete();
+					return true;
+				}
+			}
+		}
+	}
+
+	return QMainWindow::eventFilter(object, event);
 }

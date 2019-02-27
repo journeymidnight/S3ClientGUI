@@ -1,6 +1,7 @@
 #include "qfilesystemview.h"
 #include <QHeaderView>
 #include <QDir>
+#include <QKeyEvent>
 #include <QDebug>
 
 QFilesystemView::QFilesystemView(QWidget *parent):QTreeView(parent)
@@ -80,4 +81,17 @@ void QFilesystemView::refreshSignals() {
 
 QFileInfo QFilesystemView::currentFileInfo() const{
     return m_fsmodel->fileInfo(currentIndex());
+}
+
+void QFilesystemView::keyPressEvent(QKeyEvent *event)
+{
+	QModelIndex currentIndex = this->currentIndex();
+	if (currentIndex.isValid()) {
+		if (event->key() == Qt::Key_Enter || event->key() == Qt::Key_Return)
+			return changeToDir(currentIndex);
+		else if (event->key() == Qt::Key_Backspace)
+			return upToParent();
+	}
+
+	return QTreeView::keyPressEvent(event);
 }

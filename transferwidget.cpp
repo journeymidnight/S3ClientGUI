@@ -14,7 +14,7 @@ TransferTabWidget::TransferTabWidget(QWidget *parent):QTabWidget(parent) {
     m_taskModel = new QTaskModel(this);
 
     QStringList title_groups;
-    title_groups << "queued files" << "failed files" << "successful files";
+    title_groups << tr("Queued Files") << tr("Failed Files") << tr("Successful Files");
 
     QStringList groups_filter;
 

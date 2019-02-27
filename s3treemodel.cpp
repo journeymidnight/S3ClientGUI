@@ -107,6 +107,10 @@ void S3TreeModel::setRootPath(const QString &path) {
 
 	QString validPath = toValidPath(path);
     QStringList parts = validPath.split("/");
+	if (parts.length() >= 2 && !parts[1].isEmpty())
+		emit currentViewIsBucket(false);
+	else
+		emit currentViewIsBucket(true);
 
     m_currentPath = validPath;
     QString bucketName = parts[1];
@@ -227,7 +231,7 @@ void S3TreeModel::listBucketFinishd(bool success, s3error error) {
 
     auto action = qobject_cast<ListBucketAction *>(sender());
     action->deleteLater();
-    emit this->cmdFinished();
+    emit this->cmdFinished(success, error);
 }
 
 void S3TreeModel::listObjectFinished(bool success, s3error error, bool truncated, QString nextMarker) {
@@ -249,7 +253,7 @@ void S3TreeModel::listObjectFinished(bool success, s3error error, bool truncated
     //some clear up
     auto action = qobject_cast<ListObjectAction *>(sender());
     action->deleteLater();
-    emit this->cmdFinished();
+    emit this->cmdFinished(success, error);
 }
 
 
@@ -263,7 +267,6 @@ QModelIndex S3TreeModel::index(int row, int column, const QModelIndex &parent) c
 
 
 QVariant S3TreeModel::data(const QModelIndex &index, int role) const {
-
     SimpleItem *item = static_cast<SimpleItem*>(index.internalPointer());
 
     if (role == Qt::DecorationRole && index.column() == 0) {
@@ -271,8 +274,10 @@ QVariant S3TreeModel::data(const QModelIndex &index, int role) const {
             switch (item->type) {
                 case S3FileType:
 		    {
+					QIcon icon = QIcon();
 #ifdef Q_OS_WIN
 					SHFILEINFOA info;
+					ZeroMemory(&info, sizeof(SHFILEINFOA));
 					QString fileExtension = item->data.value(index.column()).toString();
 					fileExtension = fileExtension.mid(fileExtension.lastIndexOf('.'));
 					if (SHGetFileInfoA(fileExtension.toStdString().c_str(),
@@ -280,11 +285,13 @@ QVariant S3TreeModel::data(const QModelIndex &index, int role) const {
 						&info,
 						sizeof(info),
 						SHGFI_SYSICONINDEX | SHGFI_ICON | SHGFI_USEFILEATTRIBUTES)) {
-						HICON h_icon = info.hIcon;
-						return QIcon(QtWin::fromHICON(h_icon));
+						icon = QtWin::fromHICON(info.hIcon);
+						//must destroy icon
+						DestroyIcon(info.hIcon);
+						return icon;
 					}
 					else
-						return QIcon();
+						return icon;
 #else
 					//from doc, said this is OK to parse every time;
 					QMimeDatabase mime_database;
@@ -368,8 +375,8 @@ void S3TreeModel::deleteObject(const QModelIndex &index) {
              qDebug() << "delete " << item->objectPath << "failed";
              //show the messagebox;
          }
-         deleteAction->deleteLater();
-         emit this->cmdFinished();
+         //deleteAction->deleteLater();
+         emit this->cmdFinished(success, err);
      });
 }
 
