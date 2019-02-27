@@ -37,11 +37,16 @@ private slots:
 
 
     void on_taskFinished(QSharedPointer<TransferTask> t);
-    void on_cmdFinished();
+    void on_cmdFinished(bool, s3error);
+
+	void on_bucketCreate();
+	void on_bucketDelete();
+	void on_bucketRefresh();
+	void on_enableBucketActions(bool);
 
 protected:
     void closeEvent(QCloseEvent *event) Q_DECL_OVERRIDE;
-
+	bool eventFilter(QObject *object, QEvent *event) Q_DECL_OVERRIDE;
 
 private:
     Ui::MainWindow *ui;

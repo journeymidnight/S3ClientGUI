@@ -14,6 +14,8 @@ public:
     QString currentPath() const;
     void refreshSignals();
     QFileInfo currentFileInfo() const;
+protected:
+	void keyPressEvent(QKeyEvent *event) override;
 private slots:
     void changeToDir(const QModelIndex &index);
 public slots:

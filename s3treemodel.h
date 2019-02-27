@@ -54,7 +54,8 @@ public:
 signals:
     void rootPathChanged(const QString & newPath);
     void updateInfo(const QString &status);
-    void cmdFinished();
+    void cmdFinished(bool, s3error);
+	void currentViewIsBucket(bool);
 
 public slots:
     void setRootPath(const QString &path);
