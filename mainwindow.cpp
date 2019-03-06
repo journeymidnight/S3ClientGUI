@@ -34,6 +34,9 @@ void MainWindow::init() {
                                "Ltiakby8pAAbHMjpUr3L", "qMTe5ibLW49iFDEHNKqspdnJ8pwaawA9GYrBXUYc");
 
     m_s3model = new S3TreeModel(m_s3client, this);
+	connect(m_s3model, SIGNAL(rootPathChanged(QString)), ui->S3PathEdit, SLOT(setText(const QString &)));
+	connect(m_s3model, SIGNAL(currentViewIsBucket(bool)), this, SLOT(on_enableBucketActions(bool)));
+	//connect(m_s3model, SIGNAL(updateInfo(QString)), ui->S3Info, SLOT(setText(QString)));
 
     m_s3client->Connect();
 
@@ -72,21 +75,16 @@ void MainWindow::init() {
 
 
     //s3 view
-    connect(m_s3model, SIGNAL(rootPathChanged(QString)),  ui->S3PathEdit, SLOT(setText(const QString &)));
-//    connect(ui->treeViewS3, SIGNAL(doubleClicked(QModelIndex)), m_s3model, SLOT(setRootIndex(QModelIndex)));
-	connect(m_s3model, SIGNAL(currentViewIsBucket(bool)), this, SLOT(on_enableBucketActions(bool)));
-	//model of ui->treeViewS3 is proxyModel, must use mapToSource() to convert to m_s3model
+    //model of ui->treeViewS3 is proxyModel, must use mapToSource() to convert to m_s3model
 	connect(ui->treeViewS3, &QTreeView::doubleClicked, this, [=](QModelIndex proxyIndex) {
 		if (!proxyIndex.isValid())
 			return;
 		QModelIndex index = static_cast<const QSortFilterProxyModel *>(proxyIndex.model())->mapToSource(proxyIndex);
 		m_s3model->setRootIndex(index);
 	});
-    //connect(m_s3model, SIGNAL(updateInfo(QString)), ui->S3Info, SLOT(setText(QString)));
-
 
 	//init BucketAction Area
-	ui->horizontalLayout_BucketAction->addStretch();
+	//ui->horizontalLayout_BucketAction->addStretch();
 
 	ui->toolButton_bucketCreate->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 	ui->toolButton_bucketCreate->setFocusPolicy(Qt::NoFocus);
@@ -108,6 +106,13 @@ void MainWindow::init() {
 	ui->toolButton_bucketRefresh->setIconSize(QSize(24, 24));
 	ui->toolButton_bucketRefresh->setText(tr("Refresh"));
 	connect(ui->toolButton_bucketRefresh, SIGNAL(clicked()), this, SLOT(on_bucketRefresh()));	
+
+	ui->toolButton_mkdir->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+	ui->toolButton_mkdir->setFocusPolicy(Qt::NoFocus);
+	ui->toolButton_mkdir->setIcon(QIcon(":/images/bucket_Create.png"));
+	ui->toolButton_mkdir->setIconSize(QSize(24, 24));
+	ui->toolButton_mkdir->setText(tr("New Folder"));
+	connect(ui->toolButton_mkdir, SIGNAL(clicked()), this, SLOT(on_mkdir()));
 
 
     //fs view
@@ -197,11 +202,40 @@ void MainWindow::on_bucketRefresh()
 	m_s3model->setRootPath(QString('/'));
 }
 
+void MainWindow::on_mkdir()
+{
+	bool ok;
+	QString dirName = QInputDialog::getText(this,
+		tr("Create New Folder"),
+		tr("Folder name:"),
+		QLineEdit::Normal,
+		QString(),
+		&ok);
+
+	if (!dirName.endsWith('/'))
+		dirName.append('/');
+	if (ok && !dirName.isEmpty()) {
+		QString bucketName = m_s3model->getRootBucket();
+		QString currentPrefix = m_s3model->getCurrentPrefix();
+		PutObjectAction *action = m_s3client->PutObject(bucketName, currentPrefix + dirName);
+		connect(action, &PutObjectAction::PutObjectFinished, this, [=](bool success, s3error err) {
+			if (success)
+				m_s3model->setRootPath(m_s3model->getRootPath());
+			else
+				QMessageBox::critical(this,
+					AwsString2QString(err.GetExceptionName()),
+					AwsString2QString(err.GetMessage()),
+					QMessageBox::Yes);
+		});
+	}
+}
+
 void MainWindow::on_enableBucketActions(bool enabled)
 {
 	ui->toolButton_bucketCreate->setEnabled(enabled);
 	ui->toolButton_bucketDelete->setEnabled(enabled);
 	ui->toolButton_bucketRefresh->setEnabled(enabled);
+	ui->toolButton_mkdir->setEnabled(!enabled);
 }
 
 /* could be put to S3model */
@@ -244,9 +278,12 @@ void MainWindow::on_S3ContextMenuRequest(const QPoint & point) {
     if(item->type == S3FileType )  {
         menu.addAction("Download", this, SLOT(on_download()));
         menu.addAction("Delete", this, SLOT(on_delete()));
-    } else {//S3FileType, S3DiretoryType
+    } else if (item->type == S3ParentDirectoryType)
         menu.addAction("Open", this, SLOT(on_open()));
-    }
+	else if (item->type == S3DirectoryType) {
+		menu.addAction("Open", this, SLOT(on_open()));
+		menu.addAction("Delete", this, SLOT(on_delete()));
+	}
 
     menu.exec(ui->treeViewS3->mapToGlobal(point));
 }
@@ -329,7 +366,6 @@ void MainWindow::on_delete() {
 		QMessageBox::Cancel) == QMessageBox::Yes) {
 		m_s3model->deleteObject(index);
 	}
-    
 }
 
 void MainWindow::on_download(){
@@ -342,7 +378,7 @@ void MainWindow::on_download(){
     //the download file name: downloadPath + S3DisplayName
     //system path
     //define a new function
-    QChar seperator = QDir::separator();
+	QChar seperator = '/';
     QString slash;
 
     //if in root path
@@ -352,7 +388,7 @@ void MainWindow::on_download(){
         slash = seperator;
 
     QString downloadFile = m_fsview->currentPath() + slash + item->data[0].toString();
-	downloadFile = QDir::toNativeSeparators(downloadFile);
+	downloadFile = QDir::fromNativeSeparators(downloadFile);
 
     //check permission
     QFileInfo path(m_fsview->currentPath());
@@ -376,7 +412,8 @@ void MainWindow::on_download(){
     QSharedPointer<TransferTask> t = QSharedPointer<TransferTask>(new TransferTask);
 
     t->localFileName = downloadFile;
-    t->remoteFileName = item->bucketName + seperator + item->objectPath;
+	t->remoteFileName = m_s3model->getRootPath() + item->objectPath;
+    //t->remoteFileName = item->bucketName + seperator + item->objectPath;
     t->status = TaskStatus::Queueing;
     t->transferType = TaskDirection::Download;
     t->pInstance = pHandler;
@@ -413,7 +450,17 @@ void MainWindow::on_taskFinished(QSharedPointer<TransferTask> t) {
         if (t->remoteFileName.left(pos + 1) == currentPath) {
             m_s3model->refresh();
         }
-    }
+	}
+	else if (t->transferType == TaskDirection::Download) {
+		if (t->status == TaskStatus::ObjectAlreadyExists)
+			QMessageBox::warning(this,
+				tr("Download"),
+				tr("File already exists"));
+		else if (t->status != TaskStatus::SuccessCompleted)
+			QMessageBox::warning(this,
+				tr("Download"),
+				tr("Download failed"));
+	}
 
 }
 
@@ -482,7 +529,7 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event)
 					on_bucketDelete();
 					return true;
 				}
-				else if (item->type == S3FileType) {
+				else if (item->type != S3ParentDirectoryType) {
 					on_delete();
 					return true;
 				}

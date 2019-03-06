@@ -79,7 +79,7 @@ http://download.qt.io/official_release
 
 ## Using aws-sdk-cpp
 * nuget to install aws-sdk-core/aws-sdk-s3
-current version `1.6.20060301.25` may cause a crash when ListObjects() was involed if an object starts with Chinese character
+  * current version `1.6.20060301.25` may cause a crash when ListObjects() was involed if an object starts with Chinese character
 * OR build shared library manually (Recommended)
 
 ```

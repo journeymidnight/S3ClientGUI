@@ -26,6 +26,7 @@ enum class TaskStatus {
     Running,
     Suspended,
     Failed,
+	ObjectAlreadyExists,
     SuccessCompleted,
     N_PROPERTY
 };

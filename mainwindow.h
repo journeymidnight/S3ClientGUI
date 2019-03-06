@@ -42,6 +42,7 @@ private slots:
 	void on_bucketCreate();
 	void on_bucketDelete();
 	void on_bucketRefresh();
+	void on_mkdir();
 	void on_enableBucketActions(bool);
 
 protected:

@@ -4,5 +4,6 @@
         <file>images/Main.png</file>
         <file>images/bucket_Delete.png</file>
         <file>images/bucket_Refresh.png</file>
+        <file>qss/default.qss</file>
     </qresource>
 </RCC>

@@ -54,7 +54,8 @@ void S3TreeModel::setRootIndex(const QModelIndex &index) {
         return;
     } else if (item->type == S3BucketType) {
         path = "/" + item->objectPath + "/";
-    } else if (item->type == S3DirectoryType) {
+    } else if (item->type == S3DirectoryType ||
+		item->type == S3ParentDirectoryType) {
         path = "/" + item->bucketName + "/" + item->objectPath;
     }
     qDebug() << "PATH NAME" << path;
@@ -77,7 +78,6 @@ QString S3TreeModel::toValidPath(QString path)
 
 	//path start with a '/' and end with '/'
 	if (parts.count() >= 2 && parts.last() == "") {
-
 	}
 	else {
 		qDebug() << "bad path name:" << path;
@@ -145,7 +145,7 @@ void S3TreeModel::setRootPath(const QString &path) {
 	//in begining, insert ".." Folder
 	QVariantList data;
 	data << dotdot << QVariant() << QVariant() << QVariant();
-	m_currentData.append(new SimpleItem(data, S3DirectoryType, bucketName, prefix + dotdot + QChar('/')));
+	m_currentData.append(new SimpleItem(data, S3ParentDirectoryType, bucketName, prefix + dotdot + QChar('/')));
 
     //listObjectInfo will fill the m_currentData;
     ListObjectAction *loAction  = m_s3client->ListObjects(bucketName, "", prefix, QString('/'));
@@ -295,7 +295,6 @@ QVariant S3TreeModel::data(const QModelIndex &index, int role) const {
 #else
 					//from doc, said this is OK to parse every time;
 					QMimeDatabase mime_database;
-					QIcon icon;
 					QList<QMimeType> mime_types = mime_database.mimeTypesForFileName(item->objectPath);
 					for (int i = 0; i < mime_types.count() && icon.isNull(); i++)
 						icon = QIcon::fromTheme(mime_types[i].iconName());
@@ -309,6 +308,7 @@ QVariant S3TreeModel::data(const QModelIndex &index, int role) const {
 				
 		    }
                 case S3DirectoryType:
+				case S3ParentDirectoryType:
                     return iconProvider.icon(QFileIconProvider::Folder);
                 case S3BucketType:
                     return iconProvider.icon(QFileIconProvider::Drive);

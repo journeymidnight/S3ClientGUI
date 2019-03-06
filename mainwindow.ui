@@ -78,6 +78,9 @@
           <layout class="QHBoxLayout" name="horizontalLayout_BucketAction">
            <item>
             <widget class="QToolButton" name="toolButton_bucketCreate">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
              <property name="text">
               <string>...</string>
              </property>
@@ -88,6 +91,9 @@
            </item>
            <item>
             <widget class="QToolButton" name="toolButton_bucketDelete">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
              <property name="text">
               <string>...</string>
              </property>
@@ -98,11 +104,24 @@
            </item>
            <item>
             <widget class="QToolButton" name="toolButton_bucketRefresh">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
              <property name="text">
               <string>...</string>
              </property>
              <property name="toolButtonStyle">
               <enum>Qt::ToolButtonTextBesideIcon</enum>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QToolButton" name="toolButton_mkdir">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="text">
+              <string>...</string>
              </property>
             </widget>
            </item>
@@ -127,7 +146,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>880</width>
+     <width>900</width>
      <height>23</height>
     </rect>
    </property>
