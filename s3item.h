@@ -8,6 +8,7 @@ enum S3Type {
     S3FileType,
     S3BucketType,
     S3DirectoryType,
+	S3ParentDirectoryType,
 };
 
 class S3Item

@@ -16,12 +16,14 @@ QString taskStatusStringMapper(TaskStatus s) {
         "Running",
         "Suspended",
         "Failed",
+		"ObjectAlreadyExists",
         "SuccessCompleted"
     };
     return status[static_cast<int>(s)];
 }
 
 QTaskModel::QTaskModel(QObject *parent):QAbstractTableModel(parent) {
+	//maxThreadCount was related to processorCounts
     //one thread reserved for cmd line tools such as list/delete/
     int availableSlot = QThreadPool::globalInstance()->maxThreadCount() - 1;
     m_scheduler = new QTaskScheduler(this, QThreadPool::globalInstance(), availableSlot);
@@ -74,7 +76,7 @@ QVariant QTaskModel::data(const QModelIndex &index, int role) const {
         case PROGRESS_COLUMN:
             return task->progress;
         case SIZE_COLUMN:
-            return task->size;
+			return QLocale::system().formattedDataSize(task->size.toLongLong());
         case STATUS_COLUMN:
             return taskStatusStringMapper(task->status);
         }
@@ -85,7 +87,6 @@ QVariant QTaskModel::data(const QModelIndex &index, int role) const {
         return QVariant();
 
     }
-
 }
 
 Qt::ItemFlags QTaskModel::flags(const QModelIndex &index) const {
@@ -116,12 +117,13 @@ void QTaskModel::addTask(QSharedPointer<TransferTask> t) {
                 break;
             case TransferStatus::COMPLETED:
                 result = TaskStatus::SuccessCompleted;
+				t->progress = 100;
                 break;
             case TransferStatus::IN_PROGRESS:
                 result = TaskStatus::Running;
                 break;
             case TransferStatus::EXACT_OBJECT_ALREADY_EXISTS:
-                result = TaskStatus::Failed;
+                result = TaskStatus::ObjectAlreadyExists;
                 break;
             case TransferStatus::ABORTED:
                 result = TaskStatus::Failed;
@@ -134,7 +136,6 @@ void QTaskModel::addTask(QSharedPointer<TransferTask> t) {
         t->status = result;
         const QModelIndex &statusIndex = this->indexOfTask(STATUS_COLUMN, t);
         emit dataChanged(statusIndex, statusIndex);
-
     });
 
 
@@ -149,7 +150,10 @@ void QTaskModel::addTask(QSharedPointer<TransferTask> t) {
         }
 
 
-        t->progress = (transfered * 100) / total;
+		if (total == 0)
+			t->progress = 100;
+		else
+			t->progress = (transfered * 100) / total;
         if (t->progress % 5 != 0) {
             return;
         }
@@ -160,7 +164,6 @@ void QTaskModel::addTask(QSharedPointer<TransferTask> t) {
 
         emit TaskUpdateProgress(t);
     });
-
 }
 
 
@@ -191,16 +194,18 @@ const QSharedPointer<TransferTask> QTaskModel::taskAtRow(const QModelIndex &inde
 int QTaskModel::stopAll() {
     int jobs = 0;
     for(auto task : m_tasks) {
-        /*
-        if (!task.isNull() && task->pInstance != NULL) {
-            qDebug() << task;
-            qDebug() << task->pInstance;
-            task->pInstance->stop();
-            jobs ++;
-        }
-        */
-        if(task->pInstance)
-            task->pInstance->stop();
+		if (!task.isNull() && task->pInstance != NULL) {
+			qDebug() << task;
+			qDebug() << task->pInstance;
+			if (task->pInstance) {
+				task->pInstance->stop();
+				//task->pInstance->waitForFinish();
+			}
+			jobs ++;
+		}
+		
+        //if(task->pInstance)
+            //task->pInstance->stop();
     }
     m_scheduler->stopme();
     qDebug() << "QTaskModel is closed";
@@ -229,6 +234,7 @@ void QTaskScheduler::stopme() {
     stop = true;
     slotAvailiableLock.wakeAll();
     queueEmptyLock.wakeAll();
+	//wait();
     //this should be stopped.
 }
 

@@ -1,6 +1,10 @@
 #include "transferwidget.h"
-#include <QApplication>
 #include "qtaskmodel.h"
+
+#include <QApplication>
+#include <QHeaderView>
+#include <QProgressBar>
+#include <QPainter>
 
 /*
         "Queueing",
@@ -36,6 +40,9 @@ TransferTabWidget::TransferTabWidget(QWidget *parent):QTabWidget(parent) {
         view->setRootIsDecorated(false);
         view->setExpandsOnDoubleClick(false);
         view->setSortingEnabled(true);
+		//view->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+		view->header()->setStretchLastSection(true);
+		view->setUniformRowHeights(true);
         addTab(view, title_groups[i]);
 
 
@@ -64,7 +71,8 @@ void TransferViewDelegate::paint(QPainter *painter,
     QStyleOptionProgressBar progressBarOption;
     progressBarOption.state = QStyle::State_Enabled;
     progressBarOption.direction = QApplication::layoutDirection();
-    progressBarOption.rect = option.rect;
+    //progressBarOption.rect = option.rect;
+	progressBarOption.rect = QRect(option.rect.x() + 5, option.rect.y() + 5, option.rect.width() - 10, 5);
     progressBarOption.fontMetrics = QApplication::fontMetrics();
     progressBarOption.minimum = 0;
     progressBarOption.maximum = 100;
@@ -77,12 +85,22 @@ void TransferViewDelegate::paint(QPainter *painter,
     int progress = index.data().toInt();
 
     progressBarOption.progress = progress < 0 ? 0 : progress;
-    progressBarOption.text = QString::asprintf("%d%%", progressBarOption.progress);
+    //progressBarOption.text = QString::asprintf("%d%%", progressBarOption.progress);
+	painter->drawText(QRect(option.rect.right() - 35, option.rect.bottom() - 16, 35, 16), QString::asprintf("%d%%", progressBarOption.progress));
 
     // Draw the progress bar onto the view.
-    QApplication::style()->drawControl(QStyle::CE_ProgressBar, &progressBarOption, painter);
+	QProgressBar progressbar;
+    QApplication::style()->drawControl(QStyle::CE_ProgressBar, &progressBarOption, painter, &progressbar);
 }
 
+QSize TransferViewDelegate::sizeHint(const QStyleOptionViewItem &option,
+	const QModelIndex &index) const
+{
+	if (index.column() == PROGRESS_COLUMN)
+		return QSize(150, 30);
+
+	return QItemDelegate::sizeHint(option, index);
+}
 
 int TransferTabWidget::stopAll() {
     return m_taskModel->stopAll();
