@@ -364,7 +364,10 @@ void MainWindow::on_delete() {
 		tr("<html><p>Are you sure you want to delete</p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>%1</strong></p></html>").arg(item->objectPath),
 		QMessageBox::Yes | QMessageBox::Cancel,
 		QMessageBox::Cancel) == QMessageBox::Yes) {
-		m_s3model->deleteObject(index);
+		if (item->type == S3FileType)
+			m_s3model->deleteObject(index);
+		else if (item->type == S3DirectoryType)
+			m_s3model->deletePrefix(index);
 	}
 }
 
