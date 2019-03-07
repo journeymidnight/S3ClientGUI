@@ -62,7 +62,7 @@ public slots:
     void setRootIndex(const QModelIndex & index);
     void refresh();
     void deleteObject(const QModelIndex & index);
-
+	void deletePrefix(const QModelIndex & index);
 
 private slots://could use lamda function to replace
     void listBucketInfo(s3bucket bucket);
@@ -87,6 +87,8 @@ private:
     QString m_currentPath;
     CommandAction *m_currentCommand;
 	const QString dotdot = QString("..");
+	QStringList m_deleteObjects;
+	int m_deleteFinishedCnt;
 };
 
 #endif // S3TREEMODEL_H

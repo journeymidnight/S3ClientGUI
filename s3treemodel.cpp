@@ -21,7 +21,8 @@
 #include "s3treemodel.h"
 
 S3TreeModel::S3TreeModel(QS3Client * s3client, QObject * parent):QAbstractItemModel(parent), m_s3client(s3client)
-  ,m_truncated(false)
+	, m_truncated(false)
+	, m_deleteFinishedCnt(0)
 {
     m_titles << "Name" << "Mtime" << "Owner" << "Size";
 
@@ -380,6 +381,37 @@ void S3TreeModel::deleteObject(const QModelIndex &index) {
      });
 }
 
+void S3TreeModel::deletePrefix(const QModelIndex &index)
+{
+	SimpleItem *item = static_cast<SimpleItem*>(index.internalPointer());
+	QChar separator('/');
+	QString bucketName = item->bucketName;
+	QString prefix = item->objectPath;
+	if (!prefix.endsWith(separator))
+		prefix.append(separator);
+
+	m_deleteObjects.clear();
+	ListObjectAction *loAction = m_s3client->ListObjects(bucketName, "", prefix, "");
+	connect(loAction, &ListObjectAction::ListObjectInfo, this, [=](s3object object, QString bucketName) {
+		m_deleteObjects << AwsString2QString(object.GetKey());
+	});
+	connect(loAction, &ListObjectAction::ListPrefixInfo, this, [=](s3prefix prefix, QString bucketName) {
+		m_deleteObjects << AwsString2QString(prefix.GetPrefix());
+	});
+	connect(loAction, &ListObjectAction::ListObjectFinished, this, [=](bool success, s3error error, bool truncated, QString nextMarker) {
+		auto action = qobject_cast<ListObjectAction *>(sender());
+		action->deleteLater();
+		
+		m_deleteFinishedCnt = 0;
+		for (auto &object : m_deleteObjects) {
+			auto deleteAction = m_s3client->DeleteObject(bucketName, object);
+			connect(deleteAction, &DeleteObjectAction::DeleteObjectFinished, this, [=](bool success, s3error err) {
+				if (++m_deleteFinishedCnt == m_deleteObjects.size())
+					refresh();
+			});
+		}
+	});
+}
 
 QString S3TreeModel::getRootPath() {
     return m_currentPath;
