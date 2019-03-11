@@ -3,7 +3,10 @@
 #include "qfilesystemview.h"
 #include "qtaskmodel.h"
 #include "driveselectwidget.h"
+#include "qs3config.h"
+#include "editaccountdialog.h"
 
+#include <QMenu>
 #include <QDir>
 #include <QSharedPointer>
 #include <QMessageBox>
@@ -13,7 +16,8 @@
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
-    ui(new Ui::MainWindow)
+    ui(new Ui::MainWindow),
+	m_s3client(nullptr)
 {
     ui->setupUi(this);
     init();
@@ -24,21 +28,31 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+void MainWindow::rebuildS3Client()
+{
+	QS3Config::S3Config s3config = QS3Config::Instance()->getS3Config();
+	if (m_s3client)
+		m_s3client->deleteLater();
 
+	m_s3client = new QS3Client(this,
+		s3config.endpoint,
+		s3config.schema,
+		s3config.accessKey,
+		s3config.secretKey);
+
+	m_s3client->Connect();
+}
 
 void MainWindow::init() {
 
     S3API_INIT();
 
-    m_s3client = new QS3Client(this,"los-cn-north-1.lecloudapis.com", "http",
-                               "Ltiakby8pAAbHMjpUr3L", "qMTe5ibLW49iFDEHNKqspdnJ8pwaawA9GYrBXUYc");
+	rebuildS3Client();
 
     m_s3model = new S3TreeModel(m_s3client, this);
 	connect(m_s3model, SIGNAL(rootPathChanged(QString)), ui->S3PathEdit, SLOT(setText(const QString &)));
 	connect(m_s3model, SIGNAL(currentViewIsBucket(bool)), this, SLOT(on_enableBucketActions(bool)));
 	//connect(m_s3model, SIGNAL(updateInfo(QString)), ui->S3Info, SLOT(setText(QString)));
-
-    m_s3client->Connect();
 
     m_s3model->setRootPath("/");
 
@@ -105,7 +119,7 @@ void MainWindow::init() {
 	ui->toolButton_bucketRefresh->setIcon(QIcon(":/images/bucket_Refresh.png"));
 	ui->toolButton_bucketRefresh->setIconSize(QSize(24, 24));
 	ui->toolButton_bucketRefresh->setText(tr("Refresh"));
-	connect(ui->toolButton_bucketRefresh, SIGNAL(clicked()), this, SLOT(on_bucketRefresh()));	
+	connect(ui->toolButton_bucketRefresh, SIGNAL(clicked()), this, SLOT(on_bucketRefresh()));
 
 	ui->toolButton_mkdir->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 	ui->toolButton_mkdir->setFocusPolicy(Qt::NoFocus);
@@ -113,6 +127,7 @@ void MainWindow::init() {
 	ui->toolButton_mkdir->setIconSize(QSize(24, 24));
 	ui->toolButton_mkdir->setText(tr("New Folder"));
 	connect(ui->toolButton_mkdir, SIGNAL(clicked()), this, SLOT(on_mkdir()));
+
 
 
     //fs view
@@ -163,11 +178,16 @@ void MainWindow::on_bucketCreate()
 		connect(action, &CreateBucketAction::CreateBucketFinished, this, [=](bool success, s3error err) {
 			if (success)
 				m_s3model->setRootPath(QString('/'));
-			else
+			else {
+				Aws::String exceptionName = err.GetExceptionName();
+				Aws::String message = err.GetMessage();
+				if (message.length() == 0)
+					message = exceptionName;
 				QMessageBox::critical(this,
-					AwsString2QString(err.GetExceptionName()),
-					AwsString2QString(err.GetMessage()),
+					AwsString2QString(exceptionName),
+					AwsString2QString(message),
 					QMessageBox::Yes);
+			}
 		});
 	}
 }
@@ -188,18 +208,24 @@ void MainWindow::on_bucketDelete()
 		connect(action, &DeleteBucketAction::DeleteBucketFinished, this, [=](bool success, s3error err) {
 			if (success)
 				m_s3model->setRootPath(QString('/'));
-			else
+			else {
+				Aws::String exceptionName = err.GetExceptionName();
+				Aws::String message = err.GetMessage();
+				if (message.length() == 0)
+					message = exceptionName;
 				QMessageBox::critical(this,
-					AwsString2QString(err.GetExceptionName()),
-					AwsString2QString(err.GetMessage()),
+					AwsString2QString(exceptionName),
+					AwsString2QString(message),
 					QMessageBox::Yes);
+			}
 		});
 	}
 }
 
 void MainWindow::on_bucketRefresh()
 {
-	m_s3model->setRootPath(QString('/'));
+	//m_s3model->setRootPath(QString('/'));
+	m_s3model->refresh();
 }
 
 void MainWindow::on_mkdir()
@@ -234,7 +260,7 @@ void MainWindow::on_enableBucketActions(bool enabled)
 {
 	ui->toolButton_bucketCreate->setEnabled(enabled);
 	ui->toolButton_bucketDelete->setEnabled(enabled);
-	ui->toolButton_bucketRefresh->setEnabled(enabled);
+	//ui->toolButton_bucketRefresh->setEnabled(enabled);
 	ui->toolButton_mkdir->setEnabled(!enabled);
 }
 
@@ -475,11 +501,22 @@ void MainWindow::on_cmdFinished(bool success, s3error error) {
         }
     }
     */
-	if (!success)
+	if (!success) {
+		Aws::String exceptionName = error.GetExceptionName();
+		Aws::String message = error.GetMessage();
+		Aws::S3::S3Errors errtype = error.GetErrorType();
+		if (message.length() == 0)
+			message = exceptionName;
 		QMessageBox::critical(this,
-			AwsString2QString(error.GetExceptionName()),
-			AwsString2QString(error.GetMessage()),
+			AwsString2QString(exceptionName),
+			AwsString2QString(message),
 			QMessageBox::Yes);
+
+		if (errtype == Aws::S3::S3Errors::INVALID_ACCESS_KEY_ID ||
+			errtype == Aws::S3::S3Errors::ACCESS_DENIED ||
+			errtype == Aws::S3::S3Errors::SIGNATURE_DOES_NOT_MATCH)
+			on_actionAccount_triggered();
+	}
 }
 
 
@@ -541,4 +578,13 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event)
 	}
 
 	return QMainWindow::eventFilter(object, event);
+}
+void MainWindow::on_actionAccount_triggered()
+{
+	EditAccountDialog *eaDlg = new EditAccountDialog(this);
+	if (eaDlg->exec() == QDialog::Accepted) {
+		rebuildS3Client();
+		m_s3model->setS3Client(m_s3client);
+		m_s3model->setRootPath("/");
+	}
 }
