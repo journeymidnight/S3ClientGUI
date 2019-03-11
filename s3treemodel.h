@@ -49,7 +49,7 @@ public:
      // get "bucketName"  or ""
     QString getRootBucket();
     QString getCurrentPrefix();
-
+	inline void setS3Client(QS3Client *s3client) { m_s3client = s3client; }
 
 signals:
     void rootPathChanged(const QString & newPath);

@@ -5,5 +5,7 @@
         <file>images/bucket_Delete.png</file>
         <file>images/bucket_Refresh.png</file>
         <file>qss/default.qss</file>
+        <file>images/Account.png</file>
+        <file>images/Main.ico</file>
     </qresource>
 </RCC>

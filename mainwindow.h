@@ -45,19 +45,22 @@ private slots:
 	void on_mkdir();
 	void on_enableBucketActions(bool);
 
+    void on_actionAccount_triggered();
+
+private:
+	void rebuildS3Client();
 protected:
     void closeEvent(QCloseEvent *event) Q_DECL_OVERRIDE;
 	bool eventFilter(QObject *object, QEvent *event) Q_DECL_OVERRIDE;
 
 private:
     Ui::MainWindow *ui;
-    QS3Client * m_s3client;
+    QS3Client *m_s3client;
     S3TreeModel *m_s3model;
     QFilesystemView *m_fsview;
     QList<QSharedPointer<ObjectHandlerInterface>> m_tasks;
     TransferTabWidget *m_transferTabWidget;
     QProgressDialog *quitDialog;
-
 };
 
 #endif // MAINWINDOW_H

@@ -439,4 +439,3 @@ QDebug operator<<(QDebug dbg, const SimpleItem *item)
                   << "Path:"   << item->objectPath << " ";
     return dbg;
 }
-

@@ -40,6 +40,7 @@ DriveSelectWidget::DriveSelectWidget(QWidget *parent)
         m_patternGroup->addAction(action);
     }
 
+#ifdef Q_OS_WIN
     QFileIconProvider iconProvider;
 
     QToolButton *driveButton = new QToolButton;
@@ -55,6 +56,7 @@ DriveSelectWidget::DriveSelectWidget(QWidget *parent)
     QWidgetAction *driveAction = new QWidgetAction(this);
     driveAction->setDefaultWidget(driveButton);
     addAction(driveAction, QLineEdit::LeadingPosition);
+#endif
 }
 
 DriveSelectWidget::~DriveSelectWidget()

@@ -33,7 +33,9 @@ SOURCES += main.cpp\
     qtaskmodel.cpp \
     transferwidget.cpp \
     filesystemmodel.cpp \
-    driveselectwidget.cpp
+    driveselectwidget.cpp \
+    editaccountdialog.cpp \
+    qs3config.cpp
 
 
 HEADERS  += mainwindow.h \
@@ -46,12 +48,21 @@ HEADERS  += mainwindow.h \
     qtaskmodel.h \
     transferwidget.h \
     filesystemmodel.h \
-    driveselectwidget.h
+    driveselectwidget.h \
+    editaccountdialog.h \
+    qs3config.h
 
-FORMS    += mainwindow.ui
+FORMS    += mainwindow.ui \
+    editaccountdialog.ui
 
 DISTFILES += \
     README.md
 
 RESOURCES += \
     resource.qrc
+
+RC_ICONS = images/Main.ico
+
+# Single Application implementation
+include(SingleApplication/singleapplication.pri)
+DEFINES += QAPPLICATION_CLASS=QApplication
