@@ -63,6 +63,9 @@ RESOURCES += \
 
 RC_ICONS = images/Main.ico
 
+#for Mac
+ICON = images/Main.icns
+
 # Single Application implementation
 include(SingleApplication/singleapplication.pri)
 DEFINES += QAPPLICATION_CLASS=QApplication
