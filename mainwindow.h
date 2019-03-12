@@ -49,9 +49,11 @@ private slots:
 
 private:
 	void rebuildS3Client();
+	void createMenus();
 protected:
     void closeEvent(QCloseEvent *event) Q_DECL_OVERRIDE;
 	bool eventFilter(QObject *object, QEvent *event) Q_DECL_OVERRIDE;
+
 
 private:
     Ui::MainWindow *ui;
@@ -61,6 +63,8 @@ private:
     QList<QSharedPointer<ObjectHandlerInterface>> m_tasks;
     TransferTabWidget *m_transferTabWidget;
     QProgressDialog *quitDialog;
+    QMenu *fileMenu;
+    QAction * exitAction;
 };
 
 #endif // MAINWINDOW_H

@@ -7,6 +7,7 @@
 #include "editaccountdialog.h"
 
 #include <QMenu>
+#include <QMenuBar>
 #include <QDir>
 #include <QSharedPointer>
 #include <QMessageBox>
@@ -44,6 +45,7 @@ void MainWindow::rebuildS3Client()
 }
 
 void MainWindow::init() {
+    createMenus();
 
     S3API_INIT();
 
@@ -163,6 +165,19 @@ void MainWindow::init() {
     connect(m_s3model, SIGNAL(cmdFinished(bool, s3error)), this, SLOT(on_cmdFinished(bool, s3error)));
 }
 
+void MainWindow::createMenus() {
+	exitAction = new QAction(tr("E&xit"), this);
+	/*
+	 * For mac, if we do not define the menu's Exit action, 'cmd+Q' action will
+	 * call MainWindow::closeEvent twice.
+	 * https://stackoverflow.com/questions/23274983/qt-mainwindow-closeevent-mac-cmdq
+	 * And Most Qt examples have this similar exitAction<=>close() thing
+	 */
+        connect(exitAction, SIGNAL(triggered()), this, SLOT(close()));
+
+        fileMenu = menuBar()->addMenu(tr("&File"));
+	fileMenu->addAction(exitAction);
+}
 void MainWindow::on_bucketCreate()
 {
 	bool ok;
