@@ -76,7 +76,8 @@ QVariant QTaskModel::data(const QModelIndex &index, int role) const {
         case PROGRESS_COLUMN:
             return task->progress;
         case SIZE_COLUMN:
-			return QLocale::system().formattedDataSize(task->size.toLongLong());
+//			return QLocale::system().formattedDataSize(task->size.toLongLong());
+		return task->size;
         case STATUS_COLUMN:
             return taskStatusStringMapper(task->status);
         }

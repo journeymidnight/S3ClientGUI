@@ -192,7 +192,7 @@ void S3TreeModel::listObjectInfo(s3object object, QString bucketName) {
     }
 
     data << name << AwsString2QString(object.GetLastModified().ToLocalTimeString("%Y/%m/%d %R"))
-         << AwsString2QString(object.GetOwner().GetDisplayName()) << QLocale::system().formattedDataSize(object.GetSize());
+         << AwsString2QString(object.GetOwner().GetDisplayName()) << object.GetSize();
 
     //
     data << AwsString2QString(object.GetETag()) << AwsString2QString(

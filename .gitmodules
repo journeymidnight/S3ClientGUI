@@ -1,0 +1,3 @@
+[submodule "src/s3util"]
+	path = src/s3util
+	url = https://github.com/journeymidnight/s3util.git

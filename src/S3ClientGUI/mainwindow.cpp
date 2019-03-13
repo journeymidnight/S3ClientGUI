@@ -173,11 +173,12 @@ void MainWindow::createMenus() {
 	 * https://stackoverflow.com/questions/23274983/qt-mainwindow-closeevent-mac-cmdq
 	 * And Most Qt examples have this similar exitAction<=>close() thing
 	 */
-        connect(exitAction, SIGNAL(triggered()), this, SLOT(close()));
+	connect(exitAction, SIGNAL(triggered()), this, SLOT(close()));
 
-        fileMenu = menuBar()->addMenu(tr("&File"));
+	fileMenu = menuBar()->addMenu(tr("&File"));
 	fileMenu->addAction(exitAction);
 }
+
 void MainWindow::on_bucketCreate()
 {
 	bool ok;
