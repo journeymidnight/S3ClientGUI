@@ -1,0 +1,35 @@
+#from https://github.com/WPN-XM/server-control-panel/blob/master/appveyor.yml
+version: '{build}'
+
+image: Visual Studio 2017
+
+environment:
+  MSBUILD_FLAGS: /verbosity:minimal /maxcpucount /nologo /ds
+  matrix: 
+    # https://www.appveyor.com/docs/build-environment/#qt
+
+    # MSVC x64
+    - bitsize:    x64
+      #qt:        latest\msvc2017_64
+      qt:         5.11\msvc2017_64
+      suffix:     msvc2017
+      generator:  "Visual Studio 15 2017 Win64"
+
+install:
+  - cd %REPO_DIR%
+  - git submodule update --init --recursive
+  - git submodule status
+
+
+before_build:
+  - set PATH=C:\Qt\%qt%\bin;C:\Qt\%qt%;%PATH%
+  - set QTDIR=C:\Qt\%qt%
+  - call "C:\Qt\%qt%\bin\qtenv2.bat"
+  - call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
+
+build_script:
+  - cd C:\projects\S3ClientGUI\src\S3ClientGUI
+  - qmake CONFIG-=debug CONFIG+=release
+  - nmake
+
+
