@@ -4,6 +4,7 @@
 #include <QAbstractItemModel>
 #include "../s3util/qs3client.h"
 #include "s3item.h"
+#include <qtimer.h>
 
 using namespace qlibs3;
 
@@ -78,6 +79,7 @@ private:
 	QString toValidPath(QString path);
 
 private:
+	SimpleItem *m_tempData;
     QS3Client *m_s3client;
     QList<SimpleItem*> m_currentData;
     bool m_truncated;
@@ -89,6 +91,8 @@ private:
 	const QString dotdot = QString("..");
 	QStringList m_deleteObjects;
 	int m_deleteFinishedCnt;
+
+	QTimer *timer = new QTimer(this);
 };
 
 #endif // S3TREEMODEL_H

@@ -5,6 +5,7 @@
 
 //From QT5 examples
 enum S3Type {
+	S3LoadingType,
     S3FileType,
     S3BucketType,
     S3DirectoryType,
