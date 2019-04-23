@@ -20,6 +20,23 @@
 
 #include "s3treemodel.h"
 
+namespace
+{
+	static void advanceSpinner(QVariantList& loadData)
+	{
+		QVariantList text = { "...loading [-]","...loading [\\]","...loading [|]","...loading [/]" };
+		for (int i = 0; i < text.size(); ++i)
+		{
+			if (loadData.first() == text[i])
+			{
+				i = (i + 1) % text.size();
+				loadData.first() = text[i];
+				break;
+			}
+		}
+	}
+}
+
 S3TreeModel::S3TreeModel(QS3Client * s3client, QObject * parent):QAbstractItemModel(parent), m_s3client(s3client)
 	, m_truncated(false)
 	, m_deleteFinishedCnt(0)
@@ -106,6 +123,28 @@ void S3TreeModel::setRootPath(const QString &path) {
     qDeleteAll(m_currentData);
     m_currentData.clear();
 
+	//loading
+	QVariantList loadData;
+	loadData << "...loading [-]" << QVariant() << QVariant() << QVariant();
+	m_currentData.append(new SimpleItem(loadData, S3LoadingType, "", ""));
+
+	QObject::connect(timer, &QTimer::timeout, this, [=]()
+	{
+		if (m_currentData.size() > 0)
+		{
+			for (int i = m_currentData.size() - 1; i > 0; --i)
+			{
+				m_currentData.removeAt(i);
+			}
+		}
+		beginResetModel();
+		advanceSpinner(m_currentData.first()->data);
+		endResetModel();
+
+	});
+	timer->start(70);
+	beginResetModel();
+
 	QString validPath = toValidPath(path);
     QStringList parts = validPath.split("/");
 	if (parts.length() >= 2 && !parts[1].isEmpty())
@@ -143,10 +182,10 @@ void S3TreeModel::setRootPath(const QString &path) {
 
     qDebug() << "prefix name" << prefix;
 
-	//in begining, insert ".." Folder
-	QVariantList data;
+	//in begining, insert ".." Folder---move to listObjectFinished()
+	/*QVariantList data;
 	data << dotdot << QVariant() << QVariant() << QVariant();
-	m_currentData.append(new SimpleItem(data, S3ParentDirectoryType, bucketName, prefix + dotdot + QChar('/')));
+	m_currentData.append(new SimpleItem(data, S3ParentDirectoryType, bucketName, prefix + dotdot + QChar('/')));*/
 
     //listObjectInfo will fill the m_currentData;
     ListObjectAction *loAction  = m_s3client->ListObjects(bucketName, "", prefix, QString('/'));
@@ -226,6 +265,10 @@ void S3TreeModel::listBucketFinishd(bool success, s3error error) {
     if (!success) {
         qDebug() << "list bucket error!";
     }
+
+	timer->stop();
+	m_currentData.removeAt(0);
+
     endResetModel();
     emit rootPathChanged(m_currentPath);
     emit updateInfo("good");
@@ -248,6 +291,14 @@ void S3TreeModel::listObjectFinished(bool success, s3error error, bool truncated
         emit updateInfo("good");
     }
     emit rootPathChanged(m_currentPath);
+
+	timer->stop();
+	//in begining, insert ".." Folder
+	QVariantList data;
+	data << dotdot << QVariant() << QVariant() << QVariant();
+	//m_currentData.append(new SimpleItem(data, S3ParentDirectoryType, bucketName, prefix + dotdot + QChar('/')));
+	m_currentData[0] = new SimpleItem(data, S3ParentDirectoryType, "", "");
+
     endResetModel();
 
 
