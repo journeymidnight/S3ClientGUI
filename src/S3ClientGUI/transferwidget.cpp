@@ -50,10 +50,18 @@ TransferTabWidget::TransferTabWidget(QWidget *parent):QTabWidget(parent) {
 
     }
     connect(m_taskModel, SIGNAL(TaskFinished(QSharedPointer<TransferTask>)), this, SIGNAL(TaskFinished(QSharedPointer<TransferTask>)));
-
+	//follow task
+	connect(this, &TransferTabWidget::TaskFinished, this, [=](QSharedPointer<TransferTask> t) {
+		if (t->status == TaskStatus::Failed || t->status == TaskStatus::ObjectAlreadyExists)
+			setCurrentIndex(1);
+		else if (t->status == TaskStatus::SuccessCompleted)
+			setCurrentIndex(2);
+		qDebug() << "emit m_transferTabWidget Taskfinished signal";
+	});
 }
 
 void TransferTabWidget::addTask(QSharedPointer<TransferTask> t) {
+	setCurrentIndex(0);
     m_taskModel->addTask(t);
 }
 
