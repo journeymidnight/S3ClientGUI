@@ -117,7 +117,7 @@ QString S3TreeModel::toValidPath(QString path)
 
 void S3TreeModel::setRootPath(const QString &path) {
     //In commandFinished slot, I will call endResetModel;
-    beginResetModel();
+    //beginResetModel();
     qDeleteAll(m_currentData);
     m_currentData.clear();
 
@@ -171,9 +171,11 @@ void S3TreeModel::setRootPath(const QString &path) {
     }
 
     qDebug() << "prefix name" << prefix;
-
-
-    //listObjectInfo will fill the m_currentData;
+	//in begining, insert ".." Folder
+	QVariantList data;
+	data << dotdot << QVariant() << QVariant() << QVariant();
+	m_tempData = new SimpleItem(data, S3ParentDirectoryType, bucketName, prefix + dotdot + QChar('/'));
+	//listObjectInfo will fill the m_currentData;
     ListObjectAction *loAction  = m_s3client->ListObjects(bucketName, "", prefix, QString('/'));
 
     connect(loAction, SIGNAL(ListObjectInfo(s3object, QString)), this, SLOT(listObjectInfo(s3object, QString)));
@@ -279,12 +281,7 @@ void S3TreeModel::listObjectFinished(bool success, s3error error, bool truncated
     emit rootPathChanged(m_currentPath);
 
 	timer->stop();
-	//in begining, insert ".." Folder
-	QVariantList data;
-	data << dotdot << QVariant() << QVariant() << QVariant();
-	//m_currentData.append(new SimpleItem(data, S3ParentDirectoryType, bucketName, prefix + dotdot + QChar('/')));
-	m_currentData[0] = new SimpleItem(data, S3ParentDirectoryType, "", "");
-
+	m_currentData[0] = m_tempData;
     endResetModel();
 
 

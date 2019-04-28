@@ -79,6 +79,7 @@ private:
 	QString toValidPath(QString path);
 
 private:
+	SimpleItem *m_tempData;
     QS3Client *m_s3client;
     QList<SimpleItem*> m_currentData;
     bool m_truncated;
