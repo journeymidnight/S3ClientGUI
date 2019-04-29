@@ -26,9 +26,9 @@ public:
 private slots:
     /* TODO maybe could move to S3-browser-view */
     void on_S3UpButton_clicked();
-    void on_S3ContextMenuRequest(const QPoint&);
+    void on_S3ContextMenuRequest(const QPoint &);
 
-    void on_LocalContextMenuRequest(const QPoint&);
+    void on_LocalContextMenuRequest(const QPoint &);
 
     void on_download();
     void on_open();
@@ -39,20 +39,20 @@ private slots:
     void on_taskFinished(QSharedPointer<TransferTask> t);
     void on_cmdFinished(bool, s3error);
 
-	void on_bucketCreate();
-	void on_bucketDelete();
-	void on_bucketRefresh();
-	void on_mkdir();
-	void on_enableBucketActions(bool);
+    void on_bucketCreate();
+    void on_bucketDelete();
+    void on_bucketRefresh();
+    void on_mkdir();
+    void on_enableBucketActions(bool);
 
     void on_actionAccount_triggered();
 
 private:
-	void rebuildS3Client();
-	void createMenus();
+    void rebuildS3Client();
+    void createMenus();
 protected:
     void closeEvent(QCloseEvent *event) Q_DECL_OVERRIDE;
-	bool eventFilter(QObject *object, QEvent *event) Q_DECL_OVERRIDE;
+    bool eventFilter(QObject *object, QEvent *event) Q_DECL_OVERRIDE;
 
 
 private:
@@ -64,7 +64,7 @@ private:
     TransferTabWidget *m_transferTabWidget;
     QProgressDialog *quitDialog;
     QMenu *fileMenu;
-    QAction * exitAction;
+    QAction *exitAction;
 };
 
 #endif // MAINWINDOW_H

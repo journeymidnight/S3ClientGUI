@@ -27,7 +27,7 @@
 #include <QtNetwork/QLocalSocket>
 
 #ifndef QAPPLICATION_CLASS
-  #define QAPPLICATION_CLASS QCoreApplication
+#define QAPPLICATION_CLASS QCoreApplication
 #endif
 
 #include QT_STRINGIFY(QAPPLICATION_CLASS)
@@ -85,7 +85,8 @@ public:
      * Usually 4*timeout would be the worst case (fail) scenario.
      * @see See the corresponding QAPPLICATION_CLASS constructor for reference
      */
-    explicit SingleApplication( int &argc, char *argv[], bool allowSecondary = false, Options options = Mode::User, int timeout = 1000 );
+    explicit SingleApplication( int &argc, char *argv[], bool allowSecondary = false,
+                                Options options = Mode::User, int timeout = 1000 );
     ~SingleApplication();
 
     /**

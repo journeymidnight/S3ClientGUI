@@ -52,8 +52,9 @@ struct ConnectionInfo {
     quint8 stage;
 };
 
-class SingleApplicationPrivate : public QObject {
-Q_OBJECT
+class SingleApplicationPrivate : public QObject
+{
+    Q_OBJECT
 public:
     enum ConnectionType : quint8 {
         InvalidConnection = 0,
@@ -69,7 +70,7 @@ public:
     Q_DECLARE_PUBLIC(SingleApplication)
 
     SingleApplicationPrivate( SingleApplication *q_ptr );
-     ~SingleApplicationPrivate();
+    ~SingleApplicationPrivate();
 
     void genBlockServerName();
     void initializeMemoryBlock();
@@ -88,12 +89,12 @@ public:
     quint32 instanceNumber;
     QString blockServerName;
     SingleApplication::Options options;
-    QMap<QLocalSocket*, ConnectionInfo> connectionMap;
+    QMap<QLocalSocket *, ConnectionInfo> connectionMap;
 
 public Q_SLOTS:
     void slotConnectionEstablished();
-    void slotDataAvailable( QLocalSocket*, quint32 );
-    void slotClientConnectionClosed( QLocalSocket*, quint32 );
+    void slotDataAvailable( QLocalSocket *, quint32 );
+    void slotClientConnectionClosed( QLocalSocket *, quint32 );
 };
 
 #endif // SINGLEAPPLICATION_P_H

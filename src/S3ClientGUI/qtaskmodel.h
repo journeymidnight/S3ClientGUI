@@ -26,7 +26,7 @@ enum class TaskStatus {
     Running,
     Suspended,
     Failed,
-	ObjectAlreadyExists,
+    ObjectAlreadyExists,
     SuccessCompleted,
     N_PROPERTY
 };
@@ -60,7 +60,7 @@ class QTaskScheduler : public QThread
     Q_OBJECT
 
 public:
-    QTaskScheduler(QObject *parent, QThreadPool * pool, int slot);
+    QTaskScheduler(QObject *parent, QThreadPool *pool, int slot);
     int addToPendingPool(QSharedPointer<TransferTask> t);
     void run() Q_DECL_OVERRIDE;
     void stopme();
@@ -72,21 +72,21 @@ private:
     QMutex mutex;
     QWaitCondition slotAvailiableLock;
     QWaitCondition queueEmptyLock;
-    QThreadPool * m_poolInstance;
+    QThreadPool *m_poolInstance;
     int avalibleSlot;
     int m_runningJobs;
 };
 
-class QTaskModel:public QAbstractTableModel
+class QTaskModel: public QAbstractTableModel
 {
     Q_OBJECT
 public:
-    QTaskModel(QObject *parent=0);
+    QTaskModel(QObject *parent = 0);
     ~QTaskModel();
     int rowCount(const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE ;
     int columnCount(const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const Q_DECL_OVERRIDE;
-    Qt::ItemFlags flags(const QModelIndex & index) const Q_DECL_OVERRIDE ;
+    Qt::ItemFlags flags(const QModelIndex &index) const Q_DECL_OVERRIDE ;
     void addTask(QSharedPointer<TransferTask> t);
     QVariant headerData(int section, Qt::Orientation orientation,
                         int role = Qt::DisplayRole) const Q_DECL_OVERRIDE;

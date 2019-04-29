@@ -21,15 +21,15 @@ EditAccountDialog::EditAccountDialog(QWidget *parent) :
     ui->lineEdit_SecretKey->setValidator(new QRegExpValidator(skRegExp, this));
 
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(ui->buttonBox, &QDialogButtonBox::accepted, this, [=]() {
-		QS3Config::S3Config &s3config = QS3Config::Instance()->getS3Config();
-		s3config.endpoint = ui->lineEdit_Endpoint->text();
-		s3config.accessKey = ui->lineEdit_AccessKey->text();
-		s3config.secretKey = ui->lineEdit_SecretKey->text();
+    connect(ui->buttonBox, &QDialogButtonBox::accepted, this, [ = ]() {
+        QS3Config::S3Config &s3config = QS3Config::Instance()->getS3Config();
+        s3config.endpoint = ui->lineEdit_Endpoint->text();
+        s3config.accessKey = ui->lineEdit_AccessKey->text();
+        s3config.secretKey = ui->lineEdit_SecretKey->text();
         if (ui->checkBox_https->isChecked())
-			s3config.schema = "https";
+            s3config.schema = "https";
         else
-			s3config.schema = "http";
+            s3config.schema = "http";
 
         QS3Config::Instance()->saveConfigFile();
 
@@ -37,13 +37,13 @@ EditAccountDialog::EditAccountDialog(QWidget *parent) :
     });
 
     QS3Config::Instance()->loadConfigFile();
-	QS3Config::S3Config s3config = QS3Config::Instance()->getS3Config();
+    QS3Config::S3Config s3config = QS3Config::Instance()->getS3Config();
     ui->lineEdit_Endpoint->setText(s3config.endpoint);
     ui->lineEdit_AccessKey->setText(s3config.accessKey);
     ui->lineEdit_SecretKey->setText(s3config.secretKey);
     if (0 == QString::compare("http", s3config.schema))
         ui->checkBox_https->setChecked(false);
-    else if(0 == QString::compare("https", s3config.schema))
+    else if (0 == QString::compare("https", s3config.schema))
         ui->checkBox_https->setChecked(true);
 }
 

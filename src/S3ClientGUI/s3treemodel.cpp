@@ -21,23 +21,22 @@
 #include "s3treemodel.h"
 
 
-static void advanceSpinner(QVariantList& loadData)
+static void advanceSpinner(QVariantList &loadData)
 {
-	QVariantList text = { "...loading [-]","...loading [\\]","...loading [|]","...loading [/]" };
-	for (int i = 0; i < text.size(); ++i)
-	{
-		if (loadData.first() == text[i])
-		{
-			i = (i + 1) % text.size();
-			loadData.first() = text[i];
-			break;
-		}
-	}
+    QVariantList text = { "...loading [-]", "...loading [\\]", "...loading [|]", "...loading [/]" };
+    for (int i = 0; i < text.size(); ++i) {
+        if (loadData.first() == text[i]) {
+            i = (i + 1) % text.size();
+            loadData.first() = text[i];
+            break;
+        }
+    }
 }
 
-S3TreeModel::S3TreeModel(QS3Client * s3client, QObject * parent):QAbstractItemModel(parent), m_s3client(s3client)
-	, m_truncated(false)
-	, m_deleteFinishedCnt(0)
+S3TreeModel::S3TreeModel(QS3Client *s3client, QObject *parent): QAbstractItemModel(parent),
+    m_s3client(s3client)
+    , m_truncated(false)
+    , m_deleteFinishedCnt(0)
 {
     m_titles << "Name" << "Mtime" << "Owner" << "Size";
 
@@ -53,15 +52,17 @@ S3TreeModel::S3TreeModel(QS3Client * s3client, QObject * parent):QAbstractItemMo
 }
 
 
-S3TreeModel::~S3TreeModel() {
+S3TreeModel::~S3TreeModel()
+{
     qDeleteAll(m_currentData);
     /*m_s3client will be cleaned by others*/
 }
 
 
 
-void S3TreeModel::setRootIndex(const QModelIndex &index) {
-    SimpleItem *item = static_cast<SimpleItem*>(index.internalPointer());
+void S3TreeModel::setRootIndex(const QModelIndex &index)
+{
+    SimpleItem *item = static_cast<SimpleItem *>(index.internalPointer());
 
     qDebug() << "Got item:" << item;
     QString path;
@@ -71,7 +72,7 @@ void S3TreeModel::setRootIndex(const QModelIndex &index) {
     } else if (item->type == S3BucketType) {
         path = "/" + item->objectPath + "/";
     } else if (item->type == S3DirectoryType ||
-		item->type == S3ParentDirectoryType) {
+               item->type == S3ParentDirectoryType) {
         path = "/" + item->bucketName + "/" + item->objectPath;
     }
     qDebug() << "PATH NAME" << path;
@@ -89,57 +90,56 @@ void S3TreeModel::setRootIndex(const QModelIndex &index) {
 // parse ".." of path
 QString S3TreeModel::toValidPath(QString path)
 {
-	QString validPath = path;
-	QStringList parts = path.split('/');
+    QString validPath = path;
+    QStringList parts = path.split('/');
 
-	//path start with a '/' and end with '/'
-	if (parts.count() >= 2 && parts.last() == "") {
-	}
-	else {
-		qDebug() << "bad path name:" << path;
-		return validPath;
-	}
+    //path start with a '/' and end with '/'
+    if (parts.count() >= 2 && parts.last() == "") {
+    } else {
+        qDebug() << "bad path name:" << path;
+        return validPath;
+    }
 
-	if (!parts.contains(dotdot))
-		return validPath;
+    if (!parts.contains(dotdot))
+        return validPath;
 
-	if (!parts.isEmpty())
-		parts.removeLast();
-	if (!parts.isEmpty())
-		parts.removeLast();
-	if (!parts.isEmpty())
-		parts.removeLast();
+    if (!parts.isEmpty())
+        parts.removeLast();
+    if (!parts.isEmpty())
+        parts.removeLast();
+    if (!parts.isEmpty())
+        parts.removeLast();
 
-	validPath = parts.join(QChar('/'));
-	validPath.append(QChar('/'));
-	return validPath;
+    validPath = parts.join(QChar('/'));
+    validPath.append(QChar('/'));
+    return validPath;
 }
 
-void S3TreeModel::setRootPath(const QString &path) {
+void S3TreeModel::setRootPath(const QString &path)
+{
     qDeleteAll(m_currentData);
     m_currentData.clear();
 
-	//loading
-	QVariantList loadData;
-	loadData << "...loading [-]" << QVariant() << QVariant() << QVariant();
-	m_currentData.append(new SimpleItem(loadData, S3LoadingType, "", ""));
+    //loading
+    QVariantList loadData;
+    loadData << "...loading [-]" << QVariant() << QVariant() << QVariant();
+    m_currentData.append(new SimpleItem(loadData, S3LoadingType, "", ""));
 
-	QObject::connect(timer, &QTimer::timeout, this, [=]()
-	{
-		beginResetModel();
-		advanceSpinner(m_currentData.first()->data);
-		endResetModel();
-	});
-	timer->start(70);
-	//In commandFinished slot, I will call endResetModel;
-	beginResetModel();
+    QObject::connect(timer, &QTimer::timeout, this, [ = ]() {
+        beginResetModel();
+        advanceSpinner(m_currentData.first()->data);
+        endResetModel();
+    });
+    timer->start(70);
+    //In commandFinished slot, I will call endResetModel;
+    beginResetModel();
 
-	QString validPath = toValidPath(path);
+    QString validPath = toValidPath(path);
     QStringList parts = validPath.split("/");
-	if (parts.length() >= 2 && !parts[1].isEmpty())
-		emit currentViewIsBucket(false);
-	else
-		emit currentViewIsBucket(true);
+    if (parts.length() >= 2 && !parts[1].isEmpty())
+        emit currentViewIsBucket(false);
+    else
+        emit currentViewIsBucket(true);
 
     m_currentPath = validPath;
     QString bucketName = parts[1];
@@ -147,9 +147,10 @@ void S3TreeModel::setRootPath(const QString &path) {
     if (bucketName == "") {
         //listBucketInfo will fill the m_currentData;
 
-        ListBucketAction * lbAction = m_s3client->ListBuckets();
+        ListBucketAction *lbAction = m_s3client->ListBuckets();
         connect(lbAction, SIGNAL(ListBucketInfo(s3bucket)), this, SLOT(listBucketInfo(s3bucket)));
-        connect(lbAction, SIGNAL(ListBucketFinished(bool,s3error)), this, SLOT(listBucketFinishd(bool,s3error)));
+        connect(lbAction, SIGNAL(ListBucketFinished(bool, s3error)), this, SLOT(listBucketFinishd(bool,
+                                                                                                  s3error)));
 
         /*
         connect(lbAction, &ListBucketAction::finished, this, [=](){
@@ -164,40 +165,47 @@ void S3TreeModel::setRootPath(const QString &path) {
 
     QString prefix;
     // start from bucketName, end before the last ""
-    for(int i = 2; i < parts.size() - 1; i++) {
+    for (int i = 2; i < parts.size() - 1; i++) {
         prefix.append(parts[i]);
         prefix.append("/");
     }
 
     qDebug() << "prefix name" << prefix;
-	//in begining, insert ".." Folder
-	QVariantList data;
-	data << dotdot << QVariant() << QVariant() << QVariant();
-	m_tempData = new SimpleItem(data, S3ParentDirectoryType, bucketName, prefix + dotdot + QChar('/'));
-	//listObjectInfo will fill the m_currentData;
+    //in begining, insert ".." Folder
+    QVariantList data;
+    data << dotdot << QVariant() << QVariant() << QVariant();
+    m_tempData = new SimpleItem(data, S3ParentDirectoryType, bucketName, prefix + dotdot + QChar('/'));
+    //listObjectInfo will fill the m_currentData;
     ListObjectAction *loAction  = m_s3client->ListObjects(bucketName, "", prefix, QString('/'));
 
-    connect(loAction, SIGNAL(ListObjectInfo(s3object, QString)), this, SLOT(listObjectInfo(s3object, QString)));
-    connect(loAction, SIGNAL(ListPrefixInfo(s3prefix, QString)), this, SLOT(listPrefixInfo(s3prefix, QString)));
-    connect(loAction, SIGNAL(ListObjectFinished(bool, s3error, bool, QString)), this, SLOT(listObjectFinished(bool,s3error,bool, QString)));
+    connect(loAction, SIGNAL(ListObjectInfo(s3object, QString)), this, SLOT(listObjectInfo(s3object,
+                                                                                           QString)));
+    connect(loAction, SIGNAL(ListPrefixInfo(s3prefix, QString)), this, SLOT(listPrefixInfo(s3prefix,
+                                                                                           QString)));
+    connect(loAction, SIGNAL(ListObjectFinished(bool, s3error, bool, QString)), this,
+            SLOT(listObjectFinished(bool, s3error, bool, QString)));
 
 
 
     return;
 }
 
-void S3TreeModel::refresh() {
+void S3TreeModel::refresh()
+{
     setRootPath(getRootPath());
 }
 
-void S3TreeModel::listBucketInfo(s3bucket bucket) {
+void S3TreeModel::listBucketInfo(s3bucket bucket)
+{
     QList<QVariant> data;
     QString bucketName = AwsString2QString(bucket.GetName());
-    data << bucketName << AwsString2QString(bucket.GetCreationDate().ToLocalTimeString("%Y/%m/%d %R")) << "" << "";
+    data << bucketName << AwsString2QString(bucket.GetCreationDate().ToLocalTimeString("%Y/%m/%d %R"))
+         << "" << "";
     m_currentData.append(new SimpleItem(data, S3BucketType, QString(), bucketName));
 }
 
-void S3TreeModel::listObjectInfo(s3object object, QString bucketName) {
+void S3TreeModel::listObjectInfo(s3object object, QString bucketName)
+{
     QList<QVariant> data;
 
     /*key should be ZZZ/b.pdf */
@@ -212,7 +220,7 @@ void S3TreeModel::listObjectInfo(s3object object, QString bucketName) {
     QString name;
     int pos = key.lastIndexOf('/');
     if (pos != -1) {
-        name = key.mid(pos+1 ,-1);
+        name = key.mid(pos + 1, -1);
     } else {
         name = key;
     }
@@ -222,13 +230,14 @@ void S3TreeModel::listObjectInfo(s3object object, QString bucketName) {
 
     //
     data << AwsString2QString(object.GetETag()) << AwsString2QString(
-                Aws::S3::Model::ObjectStorageClassMapper::GetNameForObjectStorageClass(object.GetStorageClass()));
+             Aws::S3::Model::ObjectStorageClassMapper::GetNameForObjectStorageClass(object.GetStorageClass()));
 
     m_currentData.append(new SimpleItem(data, S3FileType, bucketName, key));
 }
 
 
-void S3TreeModel::listPrefixInfo(s3prefix prefix, QString bucketName) {
+void S3TreeModel::listPrefixInfo(s3prefix prefix, QString bucketName)
+{
     QList<QVariant> data;
     /*prefixName should be ZZZ/b/ */
     QString prefixName = AwsString2QString(prefix.GetPrefix());
@@ -248,13 +257,14 @@ void S3TreeModel::listPrefixInfo(s3prefix prefix, QString bucketName) {
     m_currentData.append(new SimpleItem(data, S3DirectoryType, bucketName, prefixName));
 }
 
-void S3TreeModel::listBucketFinishd(bool success, s3error error) {
+void S3TreeModel::listBucketFinishd(bool success, s3error error)
+{
     if (!success) {
         qDebug() << "list bucket error!";
     }
 
-	timer->stop();
-	m_currentData.removeAt(0);
+    timer->stop();
+    m_currentData.removeAt(0);
 
     endResetModel();
     emit rootPathChanged(m_currentPath);
@@ -265,8 +275,10 @@ void S3TreeModel::listBucketFinishd(bool success, s3error error) {
     emit this->cmdFinished(success, error);
 }
 
-void S3TreeModel::listObjectFinished(bool success, s3error error, bool truncated, QString nextMarker) {
-	Q_UNUSED(nextMarker);
+void S3TreeModel::listObjectFinished(bool success, s3error error, bool truncated,
+                                     QString nextMarker)
+{
+    Q_UNUSED(nextMarker);
 
     if (!success) {
         qDebug() << "list object error!" << AwsString2QString(error.GetMessage());
@@ -279,8 +291,8 @@ void S3TreeModel::listObjectFinished(bool success, s3error error, bool truncated
     }
     emit rootPathChanged(m_currentPath);
 
-	timer->stop();
-	m_currentData[0] = m_tempData;
+    timer->stop();
+    m_currentData[0] = m_tempData;
     endResetModel();
 
 
@@ -292,7 +304,8 @@ void S3TreeModel::listObjectFinished(bool success, s3error error, bool truncated
 
 
 /* pure virtual functions */
-QModelIndex S3TreeModel::index(int row, int column, const QModelIndex &parent) const {
+QModelIndex S3TreeModel::index(int row, int column, const QModelIndex &parent) const
+{
     if (m_currentData.size() > row)
         return createIndex(row, column, m_currentData[row]);
     else
@@ -300,52 +313,51 @@ QModelIndex S3TreeModel::index(int row, int column, const QModelIndex &parent) c
 }
 
 
-QVariant S3TreeModel::data(const QModelIndex &index, int role) const {
-    SimpleItem *item = static_cast<SimpleItem*>(index.internalPointer());
+QVariant S3TreeModel::data(const QModelIndex &index, int role) const
+{
+    SimpleItem *item = static_cast<SimpleItem *>(index.internalPointer());
 
     if (role == Qt::DecorationRole && index.column() == 0) {
         if (index.column() == 0) {
             switch (item->type) {
-                case S3FileType:
-		    {
-					QIcon icon = QIcon();
+            case S3FileType: {
+                QIcon icon = QIcon();
 #ifdef Q_OS_WIN
-					SHFILEINFOA info;
-					ZeroMemory(&info, sizeof(SHFILEINFOA));
-					QString fileExtension = item->data.value(index.column()).toString();
-					fileExtension = fileExtension.mid(fileExtension.lastIndexOf('.'));
-					if (SHGetFileInfoA(fileExtension.toStdString().c_str(),
-						FILE_ATTRIBUTE_NORMAL,
-						&info,
-						sizeof(info),
-						SHGFI_SYSICONINDEX | SHGFI_ICON | SHGFI_USEFILEATTRIBUTES)) {
-						icon = QtWin::fromHICON(info.hIcon);
-						//must destroy icon
-						DestroyIcon(info.hIcon);
-						return icon;
-					}
-					else
-						return icon;
+                SHFILEINFOA info;
+                ZeroMemory(&info, sizeof(SHFILEINFOA));
+                QString fileExtension = item->data.value(index.column()).toString();
+                fileExtension = fileExtension.mid(fileExtension.lastIndexOf('.'));
+                if (SHGetFileInfoA(fileExtension.toStdString().c_str(),
+                                   FILE_ATTRIBUTE_NORMAL,
+                                   &info,
+                                   sizeof(info),
+                                   SHGFI_SYSICONINDEX | SHGFI_ICON | SHGFI_USEFILEATTRIBUTES)) {
+                    icon = QtWin::fromHICON(info.hIcon);
+                    //must destroy icon
+                    DestroyIcon(info.hIcon);
+                    return icon;
+                } else
+                    return icon;
 #else
-					//from doc, said this is OK to parse every time;
-					QMimeDatabase mime_database;
-					QList<QMimeType> mime_types = mime_database.mimeTypesForFileName(item->objectPath);
-					for (int i = 0; i < mime_types.count() && icon.isNull(); i++)
-						icon = QIcon::fromTheme(mime_types[i].iconName());
-					if (icon.isNull())
-						return iconProvider.icon(QFileIconProvider::File);
-					else
-					return icon;
+                //from doc, said this is OK to parse every time;
+                QMimeDatabase mime_database;
+                QList<QMimeType> mime_types = mime_database.mimeTypesForFileName(item->objectPath);
+                for (int i = 0; i < mime_types.count() && icon.isNull(); i++)
+                    icon = QIcon::fromTheme(mime_types[i].iconName());
+                if (icon.isNull())
+                    return iconProvider.icon(QFileIconProvider::File);
+                else
+                    return icon;
 #endif // !Q_OS_WIN
 
-	            
-				
-		    }
-                case S3DirectoryType:
-				case S3ParentDirectoryType:
-                    return iconProvider.icon(QFileIconProvider::Folder);
-                case S3BucketType:
-                    return iconProvider.icon(QFileIconProvider::Drive);
+
+
+            }
+            case S3DirectoryType:
+            case S3ParentDirectoryType:
+                return iconProvider.icon(QFileIconProvider::Folder);
+            case S3BucketType:
+                return iconProvider.icon(QFileIconProvider::Drive);
             }
         } else {
             return QVariant();
@@ -360,16 +372,19 @@ QVariant S3TreeModel::data(const QModelIndex &index, int role) const {
     return QVariant();
 }
 
-int S3TreeModel::rowCount(const QModelIndex &parent) const {
+int S3TreeModel::rowCount(const QModelIndex &parent) const
+{
     return m_currentData.size();
 }
 
-int S3TreeModel::columnCount(const QModelIndex &parent) const {
+int S3TreeModel::columnCount(const QModelIndex &parent) const
+{
     //only display the "key, mtime, owner, size
     return m_titles.size();
 }
 
-QVariant S3TreeModel::headerData(int section, Qt::Orientation orientation, int role) const {
+QVariant S3TreeModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole) {
         //for bucket, the second column should be ctime, so, change this to ctime.
         if (section == 1 && m_currentPath == "/") {
@@ -381,76 +396,86 @@ QVariant S3TreeModel::headerData(int section, Qt::Orientation orientation, int r
     return QVariant();
 }
 
-QModelIndex S3TreeModel::parent(const QModelIndex &index) const {
+QModelIndex S3TreeModel::parent(const QModelIndex &index) const
+{
     return QModelIndex();
 }
 
 
 
-Qt::ItemFlags S3TreeModel::flags(const QModelIndex &index) const {
+Qt::ItemFlags S3TreeModel::flags(const QModelIndex &index) const
+{
     return (QAbstractItemModel::flags(index)) & ~ Qt::ItemIsEditable;
 }
 
 
 
-void S3TreeModel::deleteObject(const QModelIndex &index) {
-     SimpleItem *item = static_cast<SimpleItem*>(index.internalPointer());
-     auto deleteAction = m_s3client->DeleteObject(item->bucketName, item->objectPath);
-     qDebug() << "Delete Action:";
-     qDebug() << "BucketName: " << item->bucketName;
-     qDebug() << "ObjectPath: " << item->objectPath;
+void S3TreeModel::deleteObject(const QModelIndex &index)
+{
+    SimpleItem *item = static_cast<SimpleItem *>(index.internalPointer());
+    auto deleteAction = m_s3client->DeleteObject(item->bucketName, item->objectPath);
+    qDebug() << "Delete Action:";
+    qDebug() << "BucketName: " << item->bucketName;
+    qDebug() << "ObjectPath: " << item->objectPath;
 
-     connect(deleteAction, &DeleteObjectAction::DeleteObjectFinished, this, [=](bool success, s3error err){
-         if(success) {
-             //refresh this s3model
-             qDebug() << "delete " << item->objectPath << "success";
-             refresh();
-         } else {
-             qDebug() << "delete " << item->objectPath << "failed";
-             //show the messagebox;
-         }
-         //deleteAction->deleteLater();
-         emit this->cmdFinished(success, err);
-     });
+    connect(deleteAction, &DeleteObjectAction::DeleteObjectFinished, this, [ = ](bool success,
+    s3error err) {
+        if (success) {
+            //refresh this s3model
+            qDebug() << "delete " << item->objectPath << "success";
+            refresh();
+        } else {
+            qDebug() << "delete " << item->objectPath << "failed";
+            //show the messagebox;
+        }
+        //deleteAction->deleteLater();
+        emit this->cmdFinished(success, err);
+    });
 }
 
 void S3TreeModel::deletePrefix(const QModelIndex &index)
 {
-	SimpleItem *item = static_cast<SimpleItem*>(index.internalPointer());
-	QChar separator('/');
-	QString bucketName = item->bucketName;
-	QString prefix = item->objectPath;
-	if (!prefix.endsWith(separator))
-		prefix.append(separator);
+    SimpleItem *item = static_cast<SimpleItem *>(index.internalPointer());
+    QChar separator('/');
+    QString bucketName = item->bucketName;
+    QString prefix = item->objectPath;
+    if (!prefix.endsWith(separator))
+        prefix.append(separator);
 
-	m_deleteObjects.clear();
-	ListObjectAction *loAction = m_s3client->ListObjects(bucketName, "", prefix, "");
-	connect(loAction, &ListObjectAction::ListObjectInfo, this, [=](s3object object, QString bucketName) {
-		m_deleteObjects << AwsString2QString(object.GetKey());
-	});
-	connect(loAction, &ListObjectAction::ListPrefixInfo, this, [=](s3prefix prefix, QString bucketName) {
-		m_deleteObjects << AwsString2QString(prefix.GetPrefix());
-	});
-	connect(loAction, &ListObjectAction::ListObjectFinished, this, [=](bool success, s3error error, bool truncated, QString nextMarker) {
-		auto action = qobject_cast<ListObjectAction *>(sender());
-		action->deleteLater();
-		
-		m_deleteFinishedCnt = 0;
-		for (auto &object : m_deleteObjects) {
-			auto deleteAction = m_s3client->DeleteObject(bucketName, object);
-			connect(deleteAction, &DeleteObjectAction::DeleteObjectFinished, this, [=](bool success, s3error err) {
-				if (++m_deleteFinishedCnt == m_deleteObjects.size())
-					refresh();
-			});
-		}
-	});
+    m_deleteObjects.clear();
+    ListObjectAction *loAction = m_s3client->ListObjects(bucketName, "", prefix, "");
+    connect(loAction, &ListObjectAction::ListObjectInfo, this, [ = ](s3object object,
+    QString bucketName) {
+        m_deleteObjects << AwsString2QString(object.GetKey());
+    });
+    connect(loAction, &ListObjectAction::ListPrefixInfo, this, [ = ](s3prefix prefix,
+    QString bucketName) {
+        m_deleteObjects << AwsString2QString(prefix.GetPrefix());
+    });
+    connect(loAction, &ListObjectAction::ListObjectFinished, this, [ = ](bool success, s3error error,
+    bool truncated, QString nextMarker) {
+        auto action = qobject_cast<ListObjectAction *>(sender());
+        action->deleteLater();
+
+        m_deleteFinishedCnt = 0;
+        for (auto &object : m_deleteObjects) {
+            auto deleteAction = m_s3client->DeleteObject(bucketName, object);
+            connect(deleteAction, &DeleteObjectAction::DeleteObjectFinished, this, [ = ](bool success,
+            s3error err) {
+                if (++m_deleteFinishedCnt == m_deleteObjects.size())
+                    refresh();
+            });
+        }
+    });
 }
 
-QString S3TreeModel::getRootPath() {
+QString S3TreeModel::getRootPath()
+{
     return m_currentPath;
 }
 
-QString S3TreeModel::getRootBucket() {
+QString S3TreeModel::getRootBucket()
+{
     QStringList parts = m_currentPath.split("/");
     if (parts.length() >= 2)
         return parts[1];
@@ -458,11 +483,12 @@ QString S3TreeModel::getRootBucket() {
 }
 
 /* /a/b/c/  => b/c/ */
-QString S3TreeModel::getCurrentPrefix() {
+QString S3TreeModel::getCurrentPrefix()
+{
     QString bucketName = getRootBucket();
     if (bucketName.isEmpty())
         return QString();
-    int l = QString("/"+bucketName+"/").length();
+    int l = QString("/" + bucketName + "/").length();
     return m_currentPath.mid(l);
 }
 

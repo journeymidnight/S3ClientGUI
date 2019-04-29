@@ -9,7 +9,7 @@ FileSystemModel::FileSystemModel(QObject *parent)
 //QModelIndex FileSystemModel::index(int row, int column, const QModelIndex &parent) const
 //{
 //    // FIXME: Implement me!
-//	return QFileSystemModel::index(row, column, parent);
+//  return QFileSystemModel::index(row, column, parent);
 //}
 //
 //QModelIndex FileSystemModel::parent(const QModelIndex &index) const
@@ -54,24 +54,23 @@ QVariant FileSystemModel::data(const QModelIndex &index, int role) const
     if (!index.isValid())
         return QVariant();
 
-	
+
 
     // FIXME: Implement me!
-	if (index.column() == 0) {
-		if (role == Qt::DecorationRole) {
-			//parent dir ".." should display folder icon
-			if (index.data().toString() == "..")
-				return iconProvider()->icon(QFileIconProvider::Folder);
-		}
-	}
-	else {
-		// if Line#0 equal "..", do not show Size/Type/Date Modified
-		if (index.row() == 0/* && index.column() != 2*/) {
-			QModelIndex idx = QFileSystemModel::index(0, 0, index.parent());
-			if (QFileSystemModel::data(idx).toString() == "..")
-				return QVariant();
-		}
-	}
+    if (index.column() == 0) {
+        if (role == Qt::DecorationRole) {
+            //parent dir ".." should display folder icon
+            if (index.data().toString() == "..")
+                return iconProvider()->icon(QFileIconProvider::Folder);
+        }
+    } else {
+        // if Line#0 equal "..", do not show Size/Type/Date Modified
+        if (index.row() == 0/* && index.column() != 2*/) {
+            QModelIndex idx = QFileSystemModel::index(0, 0, index.parent());
+            if (QFileSystemModel::data(idx).toString() == "..")
+                return QVariant();
+        }
+    }
 
     return QFileSystemModel::data(index, role);
 }

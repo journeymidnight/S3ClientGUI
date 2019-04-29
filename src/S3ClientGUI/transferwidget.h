@@ -7,11 +7,11 @@
 #include <QTreeView>
 #include <QItemDelegate>
 
-class TransferTabWidget:public QTabWidget
+class TransferTabWidget: public QTabWidget
 {
     Q_OBJECT
 public:
-    TransferTabWidget(QWidget *parent=0);
+    TransferTabWidget(QWidget *parent = 0);
 public:
     void addTask(QSharedPointer<TransferTask> t);
     int stopAll();
@@ -23,21 +23,21 @@ signals:
 private:
     QTaskModel *m_taskModel;
 
-friend class TransferViewDelegate;
+    friend class TransferViewDelegate;
 };
 
 class TransferViewDelegate: public QItemDelegate
 {
     Q_OBJECT
 public:
-    TransferViewDelegate(TransferTabWidget * widget):QItemDelegate(widget){}
+    TransferViewDelegate(TransferTabWidget *widget): QItemDelegate(widget) {}
     /**/
     void paint(QPainter *painter,
                const QStyleOptionViewItem &option,
                const QModelIndex &index) const Q_DECL_OVERRIDE;
 
-	QSize sizeHint(const QStyleOptionViewItem &option,
-		const QModelIndex &index) const Q_DECL_OVERRIDE;
+    QSize sizeHint(const QStyleOptionViewItem &option,
+                   const QModelIndex &index) const Q_DECL_OVERRIDE;
 };
 
 #endif // TRANSFERWIDGET_H

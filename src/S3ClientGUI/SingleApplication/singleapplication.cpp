@@ -36,7 +36,8 @@
  * @param argv
  * @param {bool} allowSecondaryInstances
  */
-SingleApplication::SingleApplication( int &argc, char *argv[], bool allowSecondary, Options options, int timeout )
+SingleApplication::SingleApplication( int &argc, char *argv[], bool allowSecondary, Options options,
+                                      int timeout )
     : app_t( argc, argv ), d_ptr( new SingleApplicationPrivate( this ) )
 {
     Q_D(SingleApplication);
@@ -59,14 +60,14 @@ SingleApplication::SingleApplication( int &argc, char *argv[], bool allowSeconda
     d->memory = new QSharedMemory( d->blockServerName );
 
     // Create a shared memory block
-    if( d->memory->create( sizeof( InstancesInfo ) ) ) {
+    if ( d->memory->create( sizeof( InstancesInfo ) ) ) {
         // Initialize the shared memory block
         d->memory->lock();
         d->initializeMemoryBlock();
         d->memory->unlock();
     } else {
         // Attempt to attach to the memory segment
-        if( ! d->memory->attach() ) {
+        if ( ! d->memory->attach() ) {
             qCritical() << "SingleApplication: Unable to attach to shared memory block.";
             qCritical() << d->memory->errorString();
             delete d;
@@ -74,18 +75,19 @@ SingleApplication::SingleApplication( int &argc, char *argv[], bool allowSeconda
         }
     }
 
-    InstancesInfo* inst = static_cast<InstancesInfo*>( d->memory->data() );
+    InstancesInfo *inst = static_cast<InstancesInfo *>( d->memory->data() );
     QTime time;
     time.start();
 
     // Make sure the shared memory block is initialised and in consistent state
-    while( true ) {
+    while ( true ) {
         d->memory->lock();
 
-        if( d->blockChecksum() == inst->checksum ) break;
+        if ( d->blockChecksum() == inst->checksum ) break;
 
-        if( time.elapsed() > 5000 ) {
-            qWarning() << "SingleApplication: Shared memory block has been in an inconsistent state from more than 5s. Assuming primary instance failure.";
+        if ( time.elapsed() > 5000 ) {
+            qWarning() <<
+                       "SingleApplication: Shared memory block has been in an inconsistent state from more than 5s. Assuming primary instance failure.";
             d->initializeMemoryBlock();
         }
 
@@ -96,19 +98,19 @@ SingleApplication::SingleApplication( int &argc, char *argv[], bool allowSeconda
         QThread::sleep( 8 + static_cast <unsigned long>( static_cast <float>( qrand() ) / RAND_MAX * 10 ) );
     }
 
-    if( inst->primary == false) {
+    if ( inst->primary == false) {
         d->startPrimary();
         d->memory->unlock();
         return;
     }
 
     // Check if another instance can be started
-    if( allowSecondary ) {
+    if ( allowSecondary ) {
         inst->secondary += 1;
         inst->checksum = d->blockChecksum();
         d->instanceNumber = inst->secondary;
         d->startSecondary();
-        if( d->options & Mode::SecondaryNotification ) {
+        if ( d->options & Mode::SecondaryNotification ) {
             d->connectToPrimary( timeout, SingleApplicationPrivate::SecondaryInstance );
         }
         d->memory->unlock();
@@ -162,7 +164,7 @@ bool SingleApplication::sendMessage( QByteArray message, int timeout )
     Q_D(SingleApplication);
 
     // Nobody to connect to
-    if( isPrimary() ) return false;
+    if ( isPrimary() ) return false;
 
     // Make sure the socket is connected
     d->connectToPrimary( timeout,  SingleApplicationPrivate::Reconnect );

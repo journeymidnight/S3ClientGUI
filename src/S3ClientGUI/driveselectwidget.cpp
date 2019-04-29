@@ -14,10 +14,10 @@ DriveSelectWidget::DriveSelectWidget(QWidget *parent)
     , m_patternGroup(new QActionGroup(this))
 {
     setReadOnly(true);
-    connect(m_patternGroup, &QActionGroup::triggered, this, [this](QAction *action) {
+    connect(m_patternGroup, &QActionGroup::triggered, this, [this](QAction * action) {
         emit this->driveChanged(action->text());
     });
-    connect(this, &QLineEdit::textChanged, this, [=](QString text) {
+    connect(this, &QLineEdit::textChanged, this, [ = ](QString text) {
         QList<QAction *> actionList = m_patternGroup->actions();
         for (auto action : actionList) {
             if (text.startsWith(action->text())) {

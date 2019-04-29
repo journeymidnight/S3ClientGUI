@@ -8,9 +8,9 @@
 
 using namespace qlibs3;
 
-struct SimpleItem
-{
-    explicit SimpleItem(const QList<QVariant> &data, S3Type type, QString bucketName, QString objectPath):
+struct SimpleItem {
+    explicit SimpleItem(const QList<QVariant> &data, S3Type type, QString bucketName,
+                        QString objectPath):
         type(type),
         data(data),
         bucketName(bucketName),
@@ -33,7 +33,7 @@ class S3TreeModel : public QAbstractItemModel
 {
     Q_OBJECT
 public:
-    S3TreeModel(QS3Client * s3client, QObject * parent=0);
+    S3TreeModel(QS3Client *s3client, QObject *parent = 0);
     ~S3TreeModel();
     QVariant data(const QModelIndex &index, int role) const Q_DECL_OVERRIDE;
     Qt::ItemFlags flags(const QModelIndex &index) const Q_DECL_OVERRIDE;
@@ -47,23 +47,26 @@ public:
 
     QString getRootPath();
 
-     // get "bucketName"  or ""
+    // get "bucketName"  or ""
     QString getRootBucket();
     QString getCurrentPrefix();
-	inline void setS3Client(QS3Client *s3client) { m_s3client = s3client; }
+    inline void setS3Client(QS3Client *s3client)
+    {
+        m_s3client = s3client;
+    }
 
 signals:
-    void rootPathChanged(const QString & newPath);
+    void rootPathChanged(const QString &newPath);
     void updateInfo(const QString &status);
     void cmdFinished(bool, s3error);
-	void currentViewIsBucket(bool);
+    void currentViewIsBucket(bool);
 
 public slots:
     void setRootPath(const QString &path);
-    void setRootIndex(const QModelIndex & index);
+    void setRootIndex(const QModelIndex &index);
     void refresh();
-    void deleteObject(const QModelIndex & index);
-	void deletePrefix(const QModelIndex & index);
+    void deleteObject(const QModelIndex &index);
+    void deletePrefix(const QModelIndex &index);
 
 private slots://could use lamda function to replace
     void listBucketInfo(s3bucket bucket);
@@ -71,28 +74,28 @@ private slots://could use lamda function to replace
     void listPrefixInfo(s3prefix prefix, QString bucketName);
 
     void listBucketFinishd(bool success, s3error error);
-    void listObjectFinished(bool,s3error,bool,QString);
+    void listObjectFinished(bool, s3error, bool, QString);
 
     //void DeleteObjectFinished(bool success, s3error error); using lamda function
 
 private:
-	QString toValidPath(QString path);
+    QString toValidPath(QString path);
 
 private:
-	SimpleItem *m_tempData;
+    SimpleItem *m_tempData;
     QS3Client *m_s3client;
-    QList<SimpleItem*> m_currentData;
+    QList<SimpleItem *> m_currentData;
     bool m_truncated;
     QString m_currentPrefix;
     QList<QVariant> m_titles;
     QFileIconProvider iconProvider;
     QString m_currentPath;
     CommandAction *m_currentCommand;
-	const QString dotdot = QString("..");
-	QStringList m_deleteObjects;
-	int m_deleteFinishedCnt;
+    const QString dotdot = QString("..");
+    QStringList m_deleteObjects;
+    int m_deleteFinishedCnt;
 
-	QTimer *timer = new QTimer(this);
+    QTimer *timer = new QTimer(this);
 };
 
 #endif // S3TREEMODEL_H
