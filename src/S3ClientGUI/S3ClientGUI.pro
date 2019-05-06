@@ -23,6 +23,8 @@ win32: {
   
   INCLUDEPATH += "C:/Program Files/aws-cpp-sdk-all/include"
   LIBS += -L"C:/Program Files/aws-cpp-sdk-all/bin" -laws-cpp-sdk-core -laws-cpp-sdk-s3
+
+  LIBS += -lUser32
 }
 
 unix: CONFIG += link_pkgconfig

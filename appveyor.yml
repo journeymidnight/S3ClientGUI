@@ -28,6 +28,7 @@ before_build:
   - call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
 
 build_script:
+  - cd C:\projects\
   - git clone --depth 1 https://github.com/aws/aws-sdk-cpp.git 
   - cd aws-sdk-cpp && git checkout 1.7.97
   - mkdir build && cd build
@@ -38,6 +39,6 @@ build_script:
   - cd C:\projects\S3ClientGUI\src\S3ClientGUI
   - mkdir build && cd build
   - qmake CONFIG-=debug CONFIG+=release ..
-  - nmake
+  - nmake /f Makefile.Release
 
 
