@@ -17,6 +17,14 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET = S3ClientGUI
 TEMPLATE = app
 
+win32: {
+  DEFINES += USE_WINDOWS_DLL_SEMANTICS
+  DEFINES += USE_IMPORT_EXPORT
+  
+  INCLUDEPATH += "C:/Program Files/aws-cpp-sdk-all/include"
+  LIBS += -L"C:/Program Files/aws-cpp-sdk-all/bin" -laws-cpp-sdk-core -laws-cpp-sdk-s3
+}
+
 unix: CONFIG += link_pkgconfig
 unix: PKGCONFIG += aws-cpp-sdk-s3
 mac: LIBS += -lcurl
