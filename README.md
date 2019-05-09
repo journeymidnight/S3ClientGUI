@@ -1,3 +1,7 @@
+
+[![Build Status](https://ci.appveyor.com/api/projects/status/github/journeymidnight/s3clientgui?branch=master&svg=true)](https://ci.appveyor.com/project/thesues/s3clientgui)
+
+
 # Ubuntu
 
 ## Build shared library
