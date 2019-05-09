@@ -1,6 +1,6 @@
 
-[![Build Status](https://ci.appveyor.com/api/projects/status/github/journeymidnight/s3clientgui?branch=master&svg=true)](https://ci.appveyor.com/project/thesues/s3clientgui)
-
+[![Build Status](https://ci.appveyor.com/api/projects/status/github/journeymidnight/s3clientgui?branch=master&svg=true)](https://ci.appveyor.com/project/thesues/s3clientgui) 
+[![license](https://img.shields.io/github/license/journeymidnight/s3clientgui.svg)](https://github.com/journeymidnight/s3clientgui/blob/master/LICENSE)
 
 # Ubuntu
 
