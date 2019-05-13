@@ -333,6 +333,7 @@ void MainWindow::on_S3ContextMenuRequest(const QPoint &point)
     } else if (item->type == S3ParentDirectoryType)
         menu.addAction("Open", this, SLOT(on_open()));
     else if (item->type == S3DirectoryType) {
+        menu.addAction("Download", this, SLOT(on_downloadDir()));
         menu.addAction("Open", this, SLOT(on_open()));
         menu.addAction("Delete", this, SLOT(on_delete()));
     }
@@ -356,12 +357,83 @@ void MainWindow::on_LocalContextMenuRequest(const QPoint &point)
     if (info.isFile() && !m_s3model->getRootBucket().isEmpty()) {
         menu.addAction("Upload", this, SLOT(on_upload()));
         menu.exec(m_fsview->mapToGlobal(point));
+    } else if (info.isDir() && index.data().toString() != ".." && !m_s3model->getRootBucket().isEmpty()) {
+        menu.addAction("Upload", this, SLOT(on_uploadDir()));
+        menu.exec(m_fsview->mapToGlobal(point));
     } else {
         return;
     }
 }
 
+QFileInfoList GetFileList(QString path)
+{
+    QDir dir(path);
+    QFileInfoList file_list = dir.entryInfoList(QDir::Files | QDir::Hidden | QDir::NoSymLinks);
+    QFileInfoList folder_list = dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
 
+    for (int i = 0; i != folder_list.size(); i++) {
+        QString name = folder_list.at(i).absoluteFilePath();
+        QFileInfoList child_file_list = GetFileList(name);
+        if (child_file_list.empty())
+            file_list.append(name);
+        file_list.append(child_file_list);
+    }
+    if (file_list.empty())
+        file_list.append(path);
+    return file_list;
+}
+
+void MainWindow::on_uploadDir()
+{
+    QFileInfoList fil;
+    QFileInfo info = m_fsview->currentFileInfo();
+    QString parentDirPath = info.absolutePath() + '/';
+    qDebug() << "info=" << qPrintable(info.absolutePath()) << endl;
+    QString remoteBucketName = m_s3model->getRootBucket();
+    QString remotePrefix = m_s3model->getCurrentPrefix();
+    QString KeyName;
+
+    fil = GetFileList(info.absoluteFilePath());
+    for (int i = 0; i < fil.size(); i++) {
+        qDebug() << "fil=" << fil.at(i) << endl;
+    }
+    for (int i = 0; i < fil.size(); ++i) {
+        QString localFile = fil.at(i).absoluteFilePath();
+        QString tmp = localFile;
+        tmp.remove(0, parentDirPath.length() - 1);
+        KeyName = remotePrefix + tmp;
+        qDebug() << "tmp=" << qPrintable(tmp) << endl;
+        qDebug() << "KeyName=" << qPrintable(KeyName) << endl;
+        //if dir is empty,mkdir!
+        if (!fil.at(i).isFile()) {
+            tmp = remotePrefix + tmp + '/';
+            PutObjectAction *action = m_s3client->PutObject(remoteBucketName, tmp);
+            connect(action, &PutObjectAction::PutObjectFinished, this, [=](bool success,
+                s3error err) {
+                if (success)
+                    m_s3model->setRootPath(m_s3model->getRootPath());
+                else
+                    QMessageBox::critical(this,
+                        AwsString2QString(err.GetExceptionName()),
+                        AwsString2QString(err.GetMessage()),
+                        QMessageBox::Yes);
+            });
+            continue;
+        }
+        UploadObjectHandler *pHandler = m_s3client->UploadFile(localFile, remoteBucketName, KeyName, "");
+
+        QSharedPointer<TransferTask> t = QSharedPointer<TransferTask>(new TransferTask);
+
+        t->localFileName = localFile;
+        t->remoteFileName = m_s3model->getRootPath() + info.fileName();
+        t->size = "unknown";
+        t->status = TaskStatus::Queueing;
+        t->transferType = TaskDirection::Upload;
+        t->pInstance = pHandler;
+
+        m_transferTabWidget->addTask(t);
+    }
+}
 
 void MainWindow::on_upload()
 {
@@ -485,16 +557,94 @@ void MainWindow::on_download()
     t->progress = 0;
 
     m_transferTabWidget->addTask(t);
-
+    
     qDebug() << "inside UI thread:" << QThread::currentThread();
 
     return;
 }
 
+void MainWindow::on_downloadDir()
+{
+    QModelIndex proxyIndex = ui->treeViewS3->currentIndex();
+    if (!proxyIndex.isValid())
+        return;
+    QModelIndex index = static_cast<const QSortFilterProxyModel *>(proxyIndex.model())->mapToSource(
+        proxyIndex);
+    SimpleItem *item = static_cast<SimpleItem *>(index.internalPointer());
+    QString bucketName = item->bucketName;
+    QString prefix = item->objectPath;
+    QChar seperator = '/';
+    QString slash;
+    //if in root path
+    if (m_fsview->currentPath().endsWith(seperator) == true)
+        slash = "";
+    else
+        slash = seperator;
+    //check permission
+    QFileInfo path(m_fsview->currentPath());
+    //must be a dir
+    if (path.isDir() && path.isWritable() == false) {
+        QMessageBox::warning(this,
+            windowTitle(),
+            tr("\"%1\" is not writable").arg(m_fsview->currentPath()),
+            QMessageBox::Yes);
+        return;
+    }
+
+    if (!prefix.endsWith(seperator))
+        prefix.append(seperator);
+    ListObjectAction *loAction = m_s3client->ListObjects(bucketName, "", prefix, "");
+    connect(loAction, &ListObjectAction::ListObjectInfo, this, [=](s3object object,
+        QString bucketName) {
+        file_list << AwsString2QString(object.GetKey());
+    });
+    connect(loAction, &ListObjectAction::ListPrefixInfo, this, [=](s3prefix prefix,
+        QString bucketName) {
+        file_list << AwsString2QString(prefix.GetPrefix());
+    });
+    connect(loAction, &ListObjectAction::ListObjectFinished, this, [=](bool success, s3error error,
+        bool truncated, QString nextMarker) {
+        for (int i = 0; i < file_list.size(); ++i) {
+            qDebug() << "fileName" << m_fsview->currentPath() << endl;
+            qDebug() << "bucket=" << bucketName << endl;
+            qDebug() << "keyName=" << file_list.at(i) << endl;
+            QString tmpKeyName = file_list.at(i);
+            QString currentPrefix = m_s3model->getCurrentPrefix();
+            QString localKey = tmpKeyName.remove(0, currentPrefix.length());
+            QString downloadFile = m_fsview->currentPath() + slash + localKey;
+            //for mkdir
+            QString tmp = downloadFile;
+            QStringList strl = downloadFile.split('/');
+            tmp.chop(strl.at(strl.size() - 1).length());
+            qDebug() << "parent Dir=" << tmp << endl;
+            QDir dir(tmp);
+            if (!dir.exists()) {
+                dir.mkpath(tmp);
+            }
+            if (downloadFile.endsWith("/"))
+                continue;
+            qDebug() << "tmp=" << tmp << endl;
+            qDebug() << "downloadFile=" << downloadFile << endl;
+            DownloadObjectHandler *pHandler = m_s3client->DownloadFile(bucketName, file_list.at(i),
+                downloadFile);
+
+            QSharedPointer<TransferTask> t = QSharedPointer<TransferTask>(new TransferTask);
+
+            t->localFileName = downloadFile;
+            t->remoteFileName = m_s3model->getRootPath() + localKey;
+            t->status = TaskStatus::Queueing;
+            t->transferType = TaskDirection::Download;
+            t->pInstance = pHandler;
+            t->progress = 0;
+
+            m_transferTabWidget->addTask(t);
+        }
+        file_list.clear();
+    });
+}
 
 void MainWindow::on_taskFinished(QSharedPointer<TransferTask> t)
 {
-
     qDebug() << "on_taskFinished happend";
 
     if (quitDialog != 0) {
@@ -510,23 +660,46 @@ void MainWindow::on_taskFinished(QSharedPointer<TransferTask> t)
 
     if (t->transferType == TaskDirection::Upload) {
         QString currentPath = m_s3model->getRootPath();
-        int pos = t->remoteFileName.lastIndexOf('/');
-        //if directoy is still the same, refresh the s3treemodel
+        if (m_transferTabWidget->runningJobs() > 0) {
+            return;
+        } else {
+            int pos = t->remoteFileName.lastIndexOf('/');
+            //if directoy is still the same, refresh the s3treemodel
 
-        if (t->remoteFileName.left(pos + 1) == currentPath) {
-            m_s3model->refresh();
+            if (t->remoteFileName.left(pos + 1) == currentPath) {
+                m_s3model->refresh();
+            }
         }
     } else if (t->transferType == TaskDirection::Download) {
-        if (t->status == TaskStatus::ObjectAlreadyExists)
-            QMessageBox::warning(this,
-                                 tr("Download"),
-                                 tr("File already exists"));
-        else if (t->status != TaskStatus::SuccessCompleted)
-            QMessageBox::warning(this,
-                                 tr("Download"),
-                                 tr("Download failed"));
+        if (m_transferTabWidget->runningJobs() > 0) {
+            if (t->status == TaskStatus::ObjectAlreadyExists)
+                fileExists++;
+            else if (t->status != TaskStatus::SuccessCompleted)
+                fileFailed++;
+        } else {
+            if (fileExists > 0) {
+                QMessageBox::warning(this,
+                    tr("Download"),
+                    tr("Some File Already Exists"));
+                fileExists = 0;
+            }
+            if (fileFailed > 0) {
+                QMessageBox::warning(this,
+                    tr("Download"),
+                    tr("Some File Download Failed"));
+                fileFailed = 0;
+            }
+            if (t->status == TaskStatus::ObjectAlreadyExists) {
+                QMessageBox::warning(this,
+                    tr("Download"),
+                    tr("File Already Exists"));
+            } else if (t->status != TaskStatus::SuccessCompleted) {
+                QMessageBox::warning(this,
+                    tr("Download"),
+                    tr("File Download Failed"));
+            }
+        }
     }
-
 }
 
 void MainWindow::on_cmdFinished(bool success, s3error error)

@@ -31,8 +31,10 @@ private slots:
     void on_LocalContextMenuRequest(const QPoint &);
 
     void on_download();
+    void on_downloadDir();
     void on_open();
     void on_upload();
+    void on_uploadDir();
     void on_delete();
 
 
@@ -65,6 +67,11 @@ private:
     QProgressDialog *quitDialog;
     QMenu *fileMenu;
     QAction *exitAction;
+
+    QStringList file_list;
+
+    int fileExists = 0;
+    int fileFailed = 0;
 };
 
 #endif // MAINWINDOW_H
