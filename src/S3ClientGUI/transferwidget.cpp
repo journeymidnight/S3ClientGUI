@@ -5,6 +5,7 @@
 #include <QHeaderView>
 #include <QProgressBar>
 #include <QPainter>
+#include <QMenu>
 
 /*
         "Queueing",
@@ -33,7 +34,7 @@ TransferTabWidget::TransferTabWidget(QWidget *parent): QTabWidget(parent)
         proxyModel->setFilterRole(Qt::UserRole);
         proxyModel->setFilterRegExp(groups_filter[i]);
 
-        QTreeView *view = new QTreeView (this);
+        QTreeView *view = new QTreeView(this);
         view->setModel(proxyModel);
         view->setSelectionBehavior(QAbstractItemView::SelectRows);
         view->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -48,8 +49,15 @@ TransferTabWidget::TransferTabWidget(QWidget *parent): QTabWidget(parent)
 
 
         view->setItemDelegate(new TransferViewDelegate(this));
-
+        
+        if (1 == i) {
+            m_failedFileView = view;
+            m_failedFileView->setContextMenuPolicy(Qt::CustomContextMenu);
+            connect(m_failedFileView, SIGNAL(customContextMenuRequested(QPoint)), this,
+                SLOT(transferContextMenuRequest(QPoint)));
+        }
     }
+
     connect(m_taskModel, SIGNAL(TaskFinished(QSharedPointer<TransferTask>)), this,
             SIGNAL(TaskFinished(QSharedPointer<TransferTask>)));
     //follow task
@@ -62,6 +70,36 @@ TransferTabWidget::TransferTabWidget(QWidget *parent): QTabWidget(parent)
             qDebug() << "emit m_transferTabWidget Taskfinished signal";
         }
     });
+}
+
+void TransferTabWidget::transferContextMenuRequest(const QPoint &point)
+{
+    QMenu menu;
+
+    QModelIndex proxyIndex = m_failedFileView->indexAt(point);
+    if (proxyIndex.isValid() == false) {
+        return;
+    }
+
+    QModelIndex index = dynamic_cast<const QSortFilterProxyModel *>(proxyIndex.model())->mapToSource(
+        proxyIndex);
+
+    QSharedPointer<TransferTask> *item = static_cast<QSharedPointer<TransferTask>*>(index.internalPointer());
+    if (item->get()->transferType == TaskDirection::Download) {
+        menu.addAction("ReDownload", this, SLOT(redownload()));
+        menu.exec(m_failedFileView->mapToGlobal(point));
+    }
+}
+
+void TransferTabWidget::redownload()
+{
+    QModelIndex proxyIndex = m_failedFileView->currentIndex();
+    if (!proxyIndex.isValid())
+        return;
+    QModelIndex index = dynamic_cast<const QSortFilterProxyModel *>(proxyIndex.model())->
+        mapToSource(proxyIndex);
+    setCurrentIndex(0);
+    m_taskModel->reDownload(index);
 }
 
 void TransferTabWidget::addTask(QSharedPointer<TransferTask> t)

@@ -19,9 +19,13 @@ public:
 signals:
     void TaskFinished(QSharedPointer<TransferTask> t);
 
+private slots:
+    void transferContextMenuRequest(const QPoint &);
+    void redownload();
 
 private:
     QTaskModel *m_taskModel;
+    QTreeView *m_failedFileView;
 
     friend class TransferViewDelegate;
 };

@@ -43,6 +43,14 @@ int QTaskModel::columnCount(const QModelIndex &parent) const
     return DISPLAY_TASK_COLUNM;
 }
 
+/* pure virtual functions :just for CALLBACK to point to m_task*/
+QModelIndex QTaskModel::index(int row, int column, const QModelIndex &parent) const
+{
+    if (m_tasks.size() > row)
+        return createIndex(row, column, (void *)&m_tasks[row]);
+    else
+        return QModelIndex();
+}
 
 //works like QTaskModel::index(row, column, parent)
 QModelIndex QTaskModel::indexOfTask(int column, const QSharedPointer<TransferTask> t) const
@@ -101,6 +109,25 @@ QVariant QTaskModel::data(const QModelIndex &index, int role) const
 Qt::ItemFlags QTaskModel::flags(const QModelIndex &index) const
 {
     return (QAbstractItemModel::flags(index)) & ~ Qt::ItemIsEditable;
+}
+
+void QTaskModel::reDownload(QModelIndex &index)
+{
+    QSharedPointer<TransferTask>*item = static_cast<QSharedPointer<TransferTask>*>(
+        index.internalPointer());
+    int row = 0;
+    bool found = false;
+    for (auto i : m_tasks) {
+        if (i->pInstance==item->get()->pInstance) {
+            found = true;
+            break;
+        }
+        row++;
+    }
+    if (found) {
+        m_tasks.at(row)->status = TaskStatus::Queueing;
+    }
+    m_scheduler->addToPendingPool(m_tasks.at(row));
 }
 
 void QTaskModel::addTask(QSharedPointer<TransferTask> t)
@@ -338,8 +365,10 @@ int QTaskScheduler::addToPendingPool(QSharedPointer<TransferTask> t)
         slotAvailiableLock.wakeAll();
         mutex.unlock();
 
-        delete t->pInstance;
-        t->pInstance = NULL;
+        if (t->status != TaskStatus::Failed) {
+            delete t->pInstance;
+            t->pInstance = NULL;
+        }
 
         QTaskModel *task_model = qobject_cast<QTaskModel *>(parent());
         qDebug() << "emit Taskfinished signal";

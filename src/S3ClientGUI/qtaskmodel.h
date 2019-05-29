@@ -93,6 +93,9 @@ public:
 
 
     const QSharedPointer<TransferTask> taskAtRow(const QModelIndex &);
+    void reDownload(QModelIndex &index);
+    QModelIndex index(int row, int column,
+        const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE;
     QModelIndex indexOfTask(int column, const QSharedPointer<TransferTask> t) const;
     int stopAll();
     int runningJobs();
