@@ -39,7 +39,6 @@ SOURCES += main.cpp\
     s3treemodel.cpp \
     s3item.cpp \
     qfilesystemview.cpp \
-    ../s3util/qlogs3.cpp \
     qtaskmodel.cpp \
     transferwidget.cpp \
     filesystemmodel.cpp \
@@ -54,7 +53,6 @@ HEADERS  += mainwindow.h \
     s3treemodel.h \
     s3item.h \
     qfilesystemview.h \
-    ../s3util/qlogs3.h \
     qtaskmodel.h \
     transferwidget.h \
     filesystemmodel.h \
