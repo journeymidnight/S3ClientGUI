@@ -31,10 +31,13 @@ private slots:
     void on_LocalContextMenuRequest(const QPoint &);
 
     void on_download();
+    void OnDownloadDir();
     void on_open();
     void on_upload();
+    void OnUploadDir();
     void on_delete();
-
+    void addTask(QString bucketName, QString localFilePath, QString remoteFilePath,
+        QString key, bool taskStatus);
 
     void on_taskFinished(QSharedPointer<TransferTask> t);
     void on_cmdFinished(bool, s3error);
@@ -65,6 +68,11 @@ private:
     QProgressDialog *quitDialog;
     QMenu *fileMenu;
     QAction *exitAction;
+
+    QStringList downloadList;
+
+    int fileExists = 0;
+    int fileFailed = 0;
 };
 
 #endif // MAINWINDOW_H
