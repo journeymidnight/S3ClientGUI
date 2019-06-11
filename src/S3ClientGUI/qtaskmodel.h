@@ -7,7 +7,7 @@
 #include <QQueue>
 #include <QWaitCondition>
 #include <QDebug>
-
+#include <QTime>
 
 using namespace qlibs3;
 
@@ -37,6 +37,8 @@ struct TransferTask {
     QString uuid;
     ObjectHandlerInterface *pInstance;
 
+    QTime lastTime;
+    uint64_t lastTransfered = 0;
     //for display
     QString localFileName;
     TaskDirection transferType;
@@ -44,14 +46,17 @@ struct TransferTask {
     TaskStatus status;
     QString size;
     int progress;
+    QString speed;
+
 };
 
-#define DISPLAY_TASK_COLUNM 6
+#define DISPLAY_TASK_COLUNM 7
 
 
 #define SIZE_COLUMN 4
 #define PROGRESS_COLUMN 3
 #define STATUS_COLUMN 5
+#define SPEED_COLUM 6
 
 class QTaskModel;
 

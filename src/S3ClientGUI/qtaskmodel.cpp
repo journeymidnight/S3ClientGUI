@@ -24,6 +24,41 @@ QString taskStatusStringMapper(TaskStatus s)
     return status[static_cast<int>(s)];
 }
 
+QString formattedDataSize(qlonglong s)
+{
+    QString sizeForDisplay;
+    int base = 1024;
+    int i = 0;
+    float sizeOfDecimals;
+    while (s / base && i < 4) {
+        sizeOfDecimals = s % base;
+        sizeOfDecimals /= base;
+        s /= base;
+        i++;
+    }
+    switch (i) {
+        case 0:
+            sizeForDisplay = QString::number(s, 10, 2) + 'B';
+            return sizeForDisplay;
+        case 1:
+            sizeOfDecimals += s;
+            sizeForDisplay = QString::number(sizeOfDecimals, 10, 2) + "KiB";
+            qDebug() << sizeForDisplay;
+            return sizeForDisplay;
+        case 2:
+            sizeOfDecimals += s;
+            sizeForDisplay = QString::number(sizeOfDecimals, 10, 2) + "MiB";
+            qDebug() << sizeForDisplay;
+            return sizeForDisplay;
+        case 3:
+            sizeOfDecimals += s;
+            sizeForDisplay = QString::number(sizeOfDecimals, 10, 2) + "GiB";
+            qDebug() << sizeForDisplay;
+            return sizeForDisplay;
+    }
+}
+
+
 QTaskModel::QTaskModel(QObject *parent): QAbstractTableModel(parent)
 {
     //maxThreadCount was related to processorCounts
@@ -83,10 +118,13 @@ QVariant QTaskModel::data(const QModelIndex &index, int role) const
         case PROGRESS_COLUMN:
             return task->progress;
         case SIZE_COLUMN:
-//          return QLocale::system().formattedDataSize(task->size.toLongLong());
-            return task->size;
+//            return QLocale::system().formattedDataSize(task->size.toLongLong());
+            return formattedDataSize(task->size.toLongLong());
         case STATUS_COLUMN:
             return taskStatusStringMapper(task->status);
+        case SPEED_COLUM:
+            QString speedForDisplay = formattedDataSize(task->speed.toLongLong()) + "/s";
+            return speedForDisplay;
         }
         // use qt::userrole to filter model
     }
@@ -105,7 +143,7 @@ Qt::ItemFlags QTaskModel::flags(const QModelIndex &index) const
 
 void QTaskModel::addTask(QSharedPointer<TransferTask> t)
 {
-
+    t->lastTime = QTime::currentTime();
     int lastRow = m_tasks.length();
     beginInsertRows(QModelIndex(), lastRow, lastRow);
     m_tasks.push_back(t);
@@ -123,22 +161,27 @@ void QTaskModel::addTask(QSharedPointer<TransferTask> t)
         switch (status) {
         case TransferStatus::FAILED:
             result = TaskStatus::Failed;
+            t->speed = '0';
             break;
         case TransferStatus::CANCELED:
             result = TaskStatus::Suspended;
+            t->speed = '0';
             break;
         case TransferStatus::COMPLETED:
             result = TaskStatus::SuccessCompleted;
             t->progress = 100;
+            t->speed = '0';
             break;
         case TransferStatus::IN_PROGRESS:
             result = TaskStatus::Running;
             break;
         case TransferStatus::EXACT_OBJECT_ALREADY_EXISTS:
             result = TaskStatus::ObjectAlreadyExists;
+            t->speed = '0';
             break;
         case TransferStatus::ABORTED:
             result = TaskStatus::Failed;
+            t->speed = '0';
             break;
         /*ingnore NOT_STARTED*/
         case TransferStatus::NOT_STARTED:
@@ -177,6 +220,22 @@ void QTaskModel::addTask(QSharedPointer<TransferTask> t)
 
         emit TaskUpdateProgress(t);
     });
+
+    connect(t->pInstance, &ObjectHandlerInterface::updateSpeed, this, [this, t](uint64_t transfered) {
+        QTime currentTime = QTime::currentTime();
+        float intervalTime = (currentTime.minute() - t->lastTime.minute()) * 60 + (currentTime.second() 
+            - t->lastTime.second()) + (currentTime.msec() - t->lastTime.msec()) / 1000;
+        if (intervalTime < 0.10) {
+            return;
+        }
+        qlonglong speed = (transfered - t->lastTransfered) / intervalTime;
+        t->lastTransfered = transfered;
+        t->lastTime = currentTime;
+        QString speedString = QString("%1").arg(speed);
+        t->speed = speedString;
+        const QModelIndex &speedIndex = this->indexOfTask(SPEED_COLUM, t);
+        emit dataChanged(speedIndex, speedIndex);
+    });
 }
 
 
@@ -189,7 +248,8 @@ QVariant QTaskModel::headerData(int section, Qt::Orientation orientation,
         "remotefilename",
         "progress",
         "size",
-        "status"
+        "status",
+        "speed"
     }
     ;
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole) {
