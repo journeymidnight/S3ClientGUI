@@ -24,38 +24,20 @@ QString taskStatusStringMapper(TaskStatus s)
     return status[static_cast<int>(s)];
 }
 
-QString formattedDataSize(qlonglong s)
+QString formattedDataSize(qlonglong s, int precision = 2)
 {
-    QString sizeForDisplay;
+    static QStringList units = { "B", "KB", "MB", "GB", "TB", "PB", "EB" };
+    int power = 0;
     int base = 1024;
-    int i = 0;
-    float sizeOfDecimals;
-    while (s / base && i < 4) {
-        sizeOfDecimals = s % base;
-        sizeOfDecimals /= base;
-        s /= base;
-        i++;
+    if (s) {
+        power = int((63 - qCountLeadingZeroBits(quint64(qAbs(s)))) / 10);
     }
-    switch (i) {
-        case 0:
-            sizeForDisplay = QString::number(s, 10, 2) + 'B';
-            return sizeForDisplay;
-        case 1:
-            sizeOfDecimals += s;
-            sizeForDisplay = QString::number(sizeOfDecimals, 10, 2) + "KiB";
-            qDebug() << sizeForDisplay;
-            return sizeForDisplay;
-        case 2:
-            sizeOfDecimals += s;
-            sizeForDisplay = QString::number(sizeOfDecimals, 10, 2) + "MiB";
-            qDebug() << sizeForDisplay;
-            return sizeForDisplay;
-        case 3:
-            sizeOfDecimals += s;
-            sizeForDisplay = QString::number(sizeOfDecimals, 10, 2) + "GiB";
-            qDebug() << sizeForDisplay;
-            return sizeForDisplay;
-    }
+
+    const QString number = power
+        ? QString::number(s / std::pow(double(base), power), 'f', qMin(precision, 3 * power))
+        : QString::number(s);
+
+    return number + QLatin1Char(' ') + units[power];
 }
 
 
