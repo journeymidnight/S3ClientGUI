@@ -44,7 +44,8 @@ SOURCES += main.cpp\
     filesystemmodel.cpp \
     driveselectwidget.cpp \
     editaccountdialog.cpp \
-    qs3config.cpp
+    qs3config.cpp \
+    helper.cpp
 
 
 HEADERS  += mainwindow.h \
@@ -58,7 +59,8 @@ HEADERS  += mainwindow.h \
     filesystemmodel.h \
     driveselectwidget.h \
     editaccountdialog.h \
-    qs3config.h
+    qs3config.h \
+    helper.h
 
 FORMS    += mainwindow.ui \
     editaccountdialog.ui

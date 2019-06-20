@@ -19,6 +19,7 @@
 #endif // Q_OS_WIN
 
 #include "s3treemodel.h"
+#include "helper.h"
 
 
 static void advanceSpinner(QVariantList &loadData)
@@ -204,21 +205,6 @@ void S3TreeModel::listBucketInfo(s3bucket bucket)
     m_currentData.append(new SimpleItem(data, S3BucketType, QString(), bucketName));
 }
 
-QString formattedDataSize(qlonglong s, int precision=2) {
-        static QStringList units = {"B", "KB", "MB", "GB", "TB", "PB", "EB"};
-        int power=0;
-        int base=1000;
-        if (s) {
-                //math.log(s, 1000)
-                power = int(std::log10(qAbs(s)) / 3);
-        }
-
-        const QString number = power
-        ? QString::number(s/ std::pow(double(base), power), 'f', qMin(precision, 3 * power))
-        : QString::number(s);
-
-        return number + QLatin1Char(' ') + units[power];
-}
 
 void S3TreeModel::listObjectInfo(s3object object, QString bucketName)
 {
@@ -242,7 +228,7 @@ void S3TreeModel::listObjectInfo(s3object object, QString bucketName)
     }
 
     data << name << AwsString2QString(object.GetLastModified().ToLocalTimeString("%Y/%m/%d %R"))
-         << AwsString2QString(object.GetOwner().GetDisplayName()) << formattedDataSize(object.GetSize(),1);
+         << AwsString2QString(object.GetOwner().GetDisplayName()) << helper::formattedDataSize(object.GetSize(),1);
 
     //
     data << AwsString2QString(object.GetETag()) << AwsString2QString(

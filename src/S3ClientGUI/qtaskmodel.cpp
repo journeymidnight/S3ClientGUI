@@ -1,5 +1,6 @@
 #include "qtaskmodel.h"
 #include <QDebug>
+#include "helper.h"
 
 QString directionStringMapper(TaskDirection t)
 {
@@ -83,8 +84,7 @@ QVariant QTaskModel::data(const QModelIndex &index, int role) const
         case PROGRESS_COLUMN:
             return task->progress;
         case SIZE_COLUMN:
-//          return QLocale::system().formattedDataSize(task->size.toLongLong());
-            return task->size;
+            return helper::formattedDataSize(task->size.toLongLong());
         case STATUS_COLUMN:
             return taskStatusStringMapper(task->status);
         }
