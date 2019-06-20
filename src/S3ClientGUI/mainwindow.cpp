@@ -407,7 +407,7 @@ void MainWindow::OnUploadDir()
     while (it.hasNext()) {
         fileList.append(it.next());
     }
-    for (auto file : fileList) {
+    for (auto& file : fileList) {
         QString localFilePath = file.absoluteFilePath();
         QString keyName = localFilePath;
         keyName.remove(0, parentDirPath.length());

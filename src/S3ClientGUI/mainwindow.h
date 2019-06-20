@@ -71,6 +71,11 @@ private:
 
     QStringList downloadList;
 
+    /*
+     * File download/upload counters to indicate user that
+     * whether all the files' transfer is successful.
+     * TODO: Wrap these two flag into one struct, make the code more concise
+    */
     int fileExists = 0;
     int fileFailed = 0;
 };
