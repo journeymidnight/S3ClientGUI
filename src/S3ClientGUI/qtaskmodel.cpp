@@ -32,6 +32,24 @@ QTaskModel::QTaskModel(QObject *parent): QAbstractTableModel(parent)
     int availableSlot = QThreadPool::globalInstance()->maxThreadCount() - 1;
     m_scheduler = new QTaskScheduler(this, QThreadPool::globalInstance(), availableSlot);
     m_scheduler->start();
+    int interval = 1; //display speed interval, unit: seconds
+    m_timer.setInterval(interval * 1000);
+    m_timer.start();
+
+    QObject::connect(&m_timer, &QTimer::timeout, this, [ = ]() {
+        for (auto task : this->m_tasks) {
+            //speed is Byte/s
+            int speed = (task->transfered - task->lastTransfered) / interval;
+            if (speed > 0 ) {
+                const QModelIndex &speedIndex = this->indexOfTask(SPEED_COLUMN, task);
+                task->currentSpeed = QString("%1/s").arg(helper::formattedDataSize(speed));
+                emit dataChanged(speedIndex, speedIndex);
+                task->lastTransfered = task->transfered;
+            }
+
+
+        }
+    });
 }
 
 int QTaskModel::rowCount(const QModelIndex &parent) const
@@ -87,6 +105,9 @@ QVariant QTaskModel::data(const QModelIndex &index, int role) const
             return helper::formattedDataSize(task->size.toLongLong());
         case STATUS_COLUMN:
             return taskStatusStringMapper(task->status);
+        case SPEED_COLUMN:
+            return task->currentSpeed;
+
         }
         // use qt::userrole to filter model
     }
@@ -162,6 +183,7 @@ void QTaskModel::addTask(QSharedPointer<TransferTask> t)
             emit dataChanged(sizeIndex, sizeIndex);
         }
 
+        t->transfered = transfered;
 
         if (total == 0)
             t->progress = 100;
@@ -171,9 +193,9 @@ void QTaskModel::addTask(QSharedPointer<TransferTask> t)
             return;
         }
 
+        //Update the progress column
         const QModelIndex &progressIndex = this->indexOfTask(PROGRESS_COLUMN, t);
         emit dataChanged(progressIndex, progressIndex);
-
 
         emit TaskUpdateProgress(t);
     });
@@ -184,14 +206,15 @@ QVariant QTaskModel::headerData(int section, Qt::Orientation orientation,
                                 int role) const
 {
     QString titles[DISPLAY_TASK_COLUNM] = {
-        "localfile",
-        "direction",
-        "remotefilename",
-        "progress",
-        "size",
-        "status"
-    }
-    ;
+        tr("localfile"),
+        tr("direction"),
+        tr("remotefilename"),
+        tr("progress"),
+        tr("size"),
+        tr("status"),
+        tr("speed")
+    };
+
     if (orientation == Qt::Horizontal && role == Qt::DisplayRole) {
         return titles[section];
     }
@@ -235,8 +258,10 @@ int QTaskModel::runningJobs()
 
 QTaskModel::~QTaskModel()
 {
+    //
     m_scheduler->stopme();
     m_scheduler->wait();
+    delete m_scheduler;
 }
 
 

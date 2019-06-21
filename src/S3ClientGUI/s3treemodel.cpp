@@ -228,7 +228,8 @@ void S3TreeModel::listObjectInfo(s3object object, QString bucketName)
     }
 
     data << name << AwsString2QString(object.GetLastModified().ToLocalTimeString("%Y/%m/%d %R"))
-         << AwsString2QString(object.GetOwner().GetDisplayName()) << helper::formattedDataSize(object.GetSize(),1);
+         << AwsString2QString(object.GetOwner().GetDisplayName()) << helper::formattedDataSize(
+             object.GetSize(), 1);
 
     //
     data << AwsString2QString(object.GetETag()) << AwsString2QString(

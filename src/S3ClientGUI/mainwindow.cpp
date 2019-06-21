@@ -357,7 +357,8 @@ void MainWindow::on_LocalContextMenuRequest(const QPoint &point)
     if (info.isFile() && !m_s3model->getRootBucket().isEmpty()) {
         menu.addAction("Upload", this, SLOT(on_upload()));
         menu.exec(m_fsview->mapToGlobal(point));
-    } else if (info.isDir() && index.data().toString() != ".." && !m_s3model->getRootBucket().isEmpty()) {
+    } else if (info.isDir() && index.data().toString() != ".."
+               && !m_s3model->getRootBucket().isEmpty()) {
         menu.addAction("Upload", this, SLOT(OnUploadDir()));
         menu.exec(m_fsview->mapToGlobal(point));
     } else {
@@ -366,27 +367,31 @@ void MainWindow::on_LocalContextMenuRequest(const QPoint &point)
 }
 
 
-void MainWindow::addTask(QString bucketName, QString localFilePath, QString remoteFilePath,
-    QString key, bool taskStatus)
+void MainWindow::createTask(QString bucketName, QString localFilePath, QString remoteFilePath,
+                            QString key, bool isUpload)
 {
     QSharedPointer<TransferTask> t = QSharedPointer<TransferTask>(new TransferTask);
 
-    if (taskStatus) {
+    if (isUpload) {
         t->transferType = TaskDirection::Upload;
-        t->size = "unknown";
+        t->size = tr("");
         UploadObjectHandler *pHandler = m_s3client->UploadFile(localFilePath, bucketName,
-            remoteFilePath, "");
+                                                               remoteFilePath, "");
         t->pInstance = pHandler;
     } else {
         t->transferType = TaskDirection::Download;
         DownloadObjectHandler *pHandler = m_s3client->DownloadFile(bucketName, remoteFilePath,
-            localFilePath);
+                                                                   localFilePath);
         t->pInstance = pHandler;
     }
 
     t->localFileName = localFilePath;
     t->remoteFileName = m_s3model->getRootPath() + key;
     t->status = TaskStatus::Queueing;
+    t->currentSpeed = tr("");
+    t->lastTransfered = 0;
+    t->transfered = 0;
+
 
     m_transferTabWidget->addTask(t);
 }
@@ -403,11 +408,11 @@ void MainWindow::OnUploadDir()
     QString remoteFilePath;
 
     QDirIterator it(info.absoluteFilePath(), QStringList(), QDir::Files,
-        QDirIterator::Subdirectories);
+                    QDirIterator::Subdirectories);
     while (it.hasNext()) {
         fileList.append(it.next());
     }
-    for (auto& file : fileList) {
+    for (auto &file : fileList) {
         QString localFilePath = file.absoluteFilePath();
         QString keyName = localFilePath;
         keyName.remove(0, parentDirPath.length());
@@ -417,7 +422,7 @@ void MainWindow::OnUploadDir()
         qDebug() << localFilePath;
         qDebug() << info.fileName();
 
-        addTask(remoteBucketName, localFilePath, remoteFilePath, keyName, true);
+        createTask(remoteBucketName, localFilePath, remoteFilePath, keyName, true);
     }
 }
 
@@ -442,7 +447,7 @@ void MainWindow::on_upload()
         //can not upload;
         return;
     }
-    addTask(remoteBucketName, localFile, KeyName, info.fileName(), true);
+    createTask(remoteBucketName, localFile, KeyName, info.fileName(), true);
 }
 
 void MainWindow::on_open()
@@ -510,7 +515,7 @@ void MainWindow::on_download()
                              QMessageBox::Yes);
         return;
     }
-    addTask(item->bucketName, downloadFile, item->objectPath, item->objectPath, false);
+    createTask(item->bucketName, downloadFile, item->objectPath, item->objectPath, false);
 
     qDebug() << "inside UI thread:" << QThread::currentThread();
 
@@ -523,7 +528,7 @@ void MainWindow::OnDownloadDir()
     if (!proxyIndex.isValid())
         return;
     QModelIndex index = static_cast<const QSortFilterProxyModel *>(proxyIndex.model())->mapToSource(
-        proxyIndex);
+                            proxyIndex);
     SimpleItem *item = static_cast<SimpleItem *>(index.internalPointer());
     QString bucketName = item->bucketName;
     QString prefix = item->objectPath;
@@ -539,25 +544,25 @@ void MainWindow::OnDownloadDir()
     //must be a dir
     if (path.isDir() && path.isWritable() == false) {
         QMessageBox::warning(this,
-            windowTitle(),
-            tr("\"%1\" is not writable").arg(m_fsview->currentPath()),
-            QMessageBox::Yes);
+                             windowTitle(),
+                             tr("\"%1\" is not writable").arg(m_fsview->currentPath()),
+                             QMessageBox::Yes);
         return;
     }
 
     if (!prefix.endsWith(seperator))
         prefix.append(seperator);
     ListObjectAction *loAction = m_s3client->ListObjects(bucketName, "", prefix, "");
-    connect(loAction, &ListObjectAction::ListObjectInfo, this, [=](s3object object,
-        QString bucketName) {
+    connect(loAction, &ListObjectAction::ListObjectInfo, this, [ = ](s3object object,
+    QString bucketName) {
         downloadList << AwsString2QString(object.GetKey());
     });
-    connect(loAction, &ListObjectAction::ListPrefixInfo, this, [=](s3prefix prefix,
-        QString bucketName) {
+    connect(loAction, &ListObjectAction::ListPrefixInfo, this, [ = ](s3prefix prefix,
+    QString bucketName) {
         downloadList << AwsString2QString(prefix.GetPrefix());
     });
-    connect(loAction, &ListObjectAction::ListObjectFinished, this, [=](bool success, s3error error,
-        bool truncated, QString nextMarker) {
+    connect(loAction, &ListObjectAction::ListObjectFinished, this, [ = ](bool success, s3error error,
+    bool truncated, QString nextMarker) {
         for (auto remoteFilePath : downloadList) {
             qDebug() << "fileName" << m_fsview->currentPath() << endl;
             qDebug() << "bucket=" << bucketName << endl;
@@ -579,7 +584,7 @@ void MainWindow::OnDownloadDir()
             if (localFilePath.endsWith("/"))
                 continue;
             qDebug() << "downloadFile=" << localFilePath << endl;
-            addTask(item->bucketName, localFilePath, remoteFilePath, localKeyName, false);
+            createTask(item->bucketName, localFilePath, remoteFilePath, localKeyName, false);
         }
         downloadList.clear();
     });
@@ -621,24 +626,24 @@ void MainWindow::on_taskFinished(QSharedPointer<TransferTask> t)
         } else {
             if (fileExists > 0) {
                 QMessageBox::warning(this,
-                    tr("Download"),
-                    tr("Some File Already Exists"));
+                                     tr("Download"),
+                                     tr("Some File Already Exists"));
                 fileExists = 0;
             }
             if (fileFailed > 0) {
                 QMessageBox::warning(this,
-                    tr("Download"),
-                    tr("Some File Download Failed"));
+                                     tr("Download"),
+                                     tr("Some File Download Failed"));
                 fileFailed = 0;
             }
             if (t->status == TaskStatus::ObjectAlreadyExists) {
                 QMessageBox::warning(this,
-                    tr("Download"),
-                    tr("File Already Exists"));
+                                     tr("Download"),
+                                     tr("File Already Exists"));
             } else if (t->status != TaskStatus::SuccessCompleted) {
                 QMessageBox::warning(this,
-                    tr("Download"),
-                    tr("File Download Failed"));
+                                     tr("Download"),
+                                     tr("File Download Failed"));
             }
         }
     }

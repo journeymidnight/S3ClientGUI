@@ -36,8 +36,8 @@ private slots:
     void on_upload();
     void OnUploadDir();
     void on_delete();
-    void addTask(QString bucketName, QString localFilePath, QString remoteFilePath,
-        QString key, bool taskStatus);
+    void createTask(QString bucketName, QString localFilePath, QString remoteFilePath,
+                    QString key, bool isUpload);
 
     void on_taskFinished(QSharedPointer<TransferTask> t);
     void on_cmdFinished(bool, s3error);

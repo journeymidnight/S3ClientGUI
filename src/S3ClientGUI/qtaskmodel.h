@@ -7,6 +7,8 @@
 #include <QQueue>
 #include <QWaitCondition>
 #include <QDebug>
+#include <QTime>
+#include <QTimer>
 
 
 using namespace qlibs3;
@@ -36,6 +38,11 @@ QString taskStatusStringMapper(TaskStatus s);
 struct TransferTask {
     QString uuid;
     ObjectHandlerInterface *pInstance;
+    /*
+     * speedTimer runs every 5 seconds,
+     */
+    uint64_t transfered;
+    uint64_t lastTransfered;
 
     //for display
     QString localFileName;
@@ -44,14 +51,18 @@ struct TransferTask {
     TaskStatus status;
     QString size;
     int progress;
+    //From this->transfered to caculate currentSpeed
+    QString currentSpeed;
 };
 
-#define DISPLAY_TASK_COLUNM 6
+
+#define DISPLAY_TASK_COLUNM 7
 
 
 #define SIZE_COLUMN 4
 #define PROGRESS_COLUMN 3
 #define STATUS_COLUMN 5
+#define SPEED_COLUMN 6
 
 class QTaskModel;
 
@@ -82,7 +93,7 @@ class QTaskModel: public QAbstractTableModel
     Q_OBJECT
 public:
     QTaskModel(QObject *parent = 0);
-    ~QTaskModel();
+    ~QTaskModel() override;
     int rowCount(const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE ;
     int columnCount(const QModelIndex &parent = QModelIndex()) const Q_DECL_OVERRIDE;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const Q_DECL_OVERRIDE;
@@ -103,6 +114,7 @@ signals:
 private:
     QList<QSharedPointer<TransferTask>> m_tasks;
     QTaskScheduler *m_scheduler;
+    QTimer m_timer;
 };
 
 
